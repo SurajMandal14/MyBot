@@ -20,7 +20,8 @@ const bot = token ? new TelegramBot(token, { polling: false }) : null;
 // This helper function escapes characters that have special meaning in Telegram's 'Markdown' parse mode.
 function sanitizeForMarkdown(text: string | undefined | null): string {
     if (!text) return 'N/A';
-    // We only need to escape a few characters for the legacy 'Markdown' mode.
+    // For legacy 'Markdown' parse mode, we need to escape `_`, `*`, `` ` ``, and `[`.
+    // It's safer to be more comprehensive to avoid any parsing errors.
     return text
         .toString()
         .replace(/_/g, '\\_')
@@ -158,7 +159,11 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
         }
 
     } catch (error: any) {
-        console.error(`FATAL: [chatId: ${chatId}] Unhandled error during parsing: ${error instanceof Error ? error.stack : JSON.stringify(error)}`);
+        console.error(`FATAL: [chatId: ${chatId}] Unhandled error during new document request.`);
+        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+        const errorStack = error instanceof Error ? error.stack : 'No stack available';
+        console.error(`--> Error Message: ${errorMessage}`);
+        console.error(`--> Error Stack: ${errorStack}`);
         await bot!.editMessageText(`A critical error occurred while parsing your notes. Please try again.`, { chat_id: chatId, message_id: parsingMessage.message_id });
     }
 }
@@ -188,7 +193,11 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
              await bot!.editMessageText(`Sorry, I couldn't apply that change. Error: ${result.message}`, { chat_id: chatId, message_id: processingMessage.message_id });
          }
      } catch (error: any) {
-         console.error(`FATAL: [chatId: ${chatId}] Unhandled error during modification: ${error instanceof Error ? error.stack : JSON.stringify(error)}`);
+         console.error(`FATAL: [chatId: ${chatId}] Unhandled error during modification request.`);
+         const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+         const errorStack = error instanceof Error ? error.stack : 'No stack available';
+         console.error(`--> Error Message: ${errorMessage}`);
+         console.error(`--> Error Stack: ${errorStack}`);
          await bot!.editMessageText(`A critical error occurred while modifying the document. Please try again.`, { chat_id: chatId, message_id: processingMessage.message_id });
      }
 }
@@ -255,9 +264,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'ok' });
 
     } catch (error: any) {
-        console.error(`FATAL: Unhandled error in webhook top-level processing: ${error instanceof Error ? error.stack : JSON.stringify(error)}`);
+        console.error(`FATAL: Unhandled error in webhook top-level processing.`);
+        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+        const errorStack = error instanceof Error ? error.stack : 'No stack available';
+        console.error(`--> Error Message: ${errorMessage}`);
+        console.error(`--> Error Stack: ${errorStack}`);
         // We might not have a chatId here if the request body is malformed.
         // We can't reliably send a message back.
         return NextResponse.json({ error: 'Failed to process update' }, { status: 500 });
     }
 }
+
+    
