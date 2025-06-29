@@ -17,44 +17,10 @@ if (!publicUrl) {
 
 const bot = token ? new TelegramBot(token, { polling: false }) : null;
 
-// This helper function escapes characters that have special meaning in Telegram's 'Markdown' parse mode.
-function sanitizeForMarkdown(text: string | undefined | null): string {
-    if (!text) return 'N/A';
-    // For legacy 'Markdown' parse mode, we need to escape `_`, `*`, `` ` ``, and `[`.
-    // It's safer to be more comprehensive to avoid any parsing errors.
-    return text
-        .toString()
-        .replace(/_/g, '\\_')
-        .replace(/\*/g, '\\*')
-        .replace(/`/g, '\\`')
-        .replace(/\[/g, '\\[');
-}
-
-async function generateInvoiceReply(invoiceData: any, title: string) {
-    const { customerName, vehicleNumber, carModel, items, invoiceNumber } = invoiceData;
-
-    let responseText = `*${title}*:\n\n`;
-    responseText += `*Invoice Number:* ${sanitizeForMarkdown(invoiceNumber)}\n\n`;
-    responseText += `*Customer:* ${sanitizeForMarkdown(customerName)}\n`;
-    responseText += `*Vehicle:* ${sanitizeForMarkdown(vehicleNumber)}\n`;
-    responseText += `*Model:* ${sanitizeForMarkdown(carModel)}\n\n`;
-    responseText += `*Items*:\n`;
-
-    let totalAmount = 0;
-    if (Array.isArray(items)) {
-        items.forEach((item: any) => {
-            const description = sanitizeForMarkdown(item.description);
-            const total = item.total || 0;
-            responseText += `- ${description}: ${total.toFixed(2)}\n`;
-            totalAmount += total;
-        });
-    }
-
-    responseText += `\n*Grand Total:* ${totalAmount.toFixed(2)}`;
+async function generateInvoiceReply(invoiceData: any) {
+    let responseText = `Your invoice has been created successfully.\n\nClick the button below to view, print, or save as a PDF.`;
     
-    const replyOptions: TelegramBot.SendMessageOptions = {
-        parse_mode: 'Markdown'
-    };
+    const replyOptions: TelegramBot.SendMessageOptions = {};
 
     if (publicUrl) {
         const jsonData = JSON.stringify(invoiceData);
@@ -63,11 +29,11 @@ async function generateInvoiceReply(invoiceData: any, title: string) {
 
         replyOptions.reply_markup = {
             inline_keyboard: [
-                [{ text: '📄 View and Print PDF', url: invoiceUrl }]
+                [{ text: '📄 View and Print Invoice', url: invoiceUrl }]
             ]
         };
     } else {
-        responseText += `\n\n(Set the PUBLIC_URL environment variable to enable PDF link generation)`;
+        responseText += `\n\n(PDF link generation is disabled. Please set the PUBLIC_URL environment variable.)`;
     }
 
     responseText += `\n\n(To make changes, simply reply to this message with your request, e.g., "remove engine oil")`;
@@ -75,31 +41,10 @@ async function generateInvoiceReply(invoiceData: any, title: string) {
     return { responseText, replyOptions };
 }
 
-async function generateQuotationReply(quotationData: any, title: string) {
-    const { customerName, vehicleNumber, carModel, items, quotationNumber } = quotationData;
-
-    let responseText = `*${title}*:\n\n`;
-    responseText += `*Quotation Number:* ${sanitizeForMarkdown(quotationNumber)}\n\n`;
-    responseText += `*Customer:* ${sanitizeForMarkdown(customerName)}\n`;
-    responseText += `*Vehicle:* ${sanitizeForMarkdown(vehicleNumber)}\n`;
-    responseText += `*Model:* ${sanitizeForMarkdown(carModel)}\n\n`;
-    responseText += `*Items*:\n`;
-
-    let totalAmount = 0;
-    if (Array.isArray(items)) {
-        items.forEach((item: any) => {
-            const description = sanitizeForMarkdown(item.description);
-            const total = item.total || 0;
-            responseText += `- ${description}: ${total.toFixed(2)}\n`;
-            totalAmount += total;
-        });
-    }
-
-    responseText += `\n*Estimated Total:* ${totalAmount.toFixed(2)}`;
+async function generateQuotationReply(quotationData: any) {
+    let responseText = `Your quotation has been created successfully.\n\nClick the button below to view, print, or save as a PDF.`;
     
-    const replyOptions: TelegramBot.SendMessageOptions = {
-        parse_mode: 'Markdown'
-    };
+    const replyOptions: TelegramBot.SendMessageOptions = {};
 
     if (publicUrl) {
         const jsonData = JSON.stringify(quotationData);
@@ -108,12 +53,14 @@ async function generateQuotationReply(quotationData: any, title: string) {
 
         replyOptions.reply_markup = {
             inline_keyboard: [
-                [{ text: '📄 View and Print PDF', url: quotationUrl }]
+                [{ text: '📄 View and Print Quotation', url: quotationUrl }]
             ]
         };
     } else {
-        responseText += `\n\n(Set the PUBLIC_URL environment variable to enable PDF link generation)`;
+        responseText += `\n\n(PDF link generation is disabled. Please set the PUBLIC_URL environment variable.)`;
     }
+    
+    responseText += `\n\n(To make changes, simply reply to this message with your request, e.g., "add front bumper for 2500")`;
 
     return { responseText, replyOptions };
 }
@@ -148,13 +95,13 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
         if (!data.carModel?.trim()) missingFields.push('Car Model');
 
         if (missingFields.length > 0) {
-            const missingFieldsText = missingFields.map(f => `*${f}*`).join(', ');
+            const missingFieldsText = missingFields.join(', ');
             const responseText = `I've parsed what I could, but I'm missing some essential details: ${missingFieldsText}.\n\nPlease send your service notes again, including the missing information.`;
-            await bot!.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, parse_mode: 'Markdown' });
+            await bot!.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id });
         } else {
             console.log(`INFO: [chatId: ${chatId}] Parsing successful. Generating reply.`);
             const replyGenerator = isQuotation ? generateQuotationReply : generateInvoiceReply;
-            const { responseText, replyOptions } = await replyGenerator(data, `${docType} Details Parsed Successfully`);
+            const { responseText, replyOptions } = await replyGenerator(data);
             await bot!.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, ...replyOptions });
         }
 
@@ -184,9 +131,8 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
 
              const isInvoice = 'invoiceNumber' in modifiedData;
              const replyGenerator = isInvoice ? generateInvoiceReply : generateQuotationReply;
-             const docType = isInvoice ? 'Invoice' : 'Quotation';
              
-             const { responseText, replyOptions } = await replyGenerator(modifiedData, `${docType} Details Updated`);
+             const { responseText, replyOptions } = await replyGenerator(modifiedData);
              await bot!.editMessageText(responseText, { chat_id: chatId, message_id: processingMessage.message_id, ...replyOptions });
          } else {
              console.error(`ERROR: [chatId: ${chatId}] Modification failed:`, result.message);
@@ -221,7 +167,8 @@ export async function POST(req: NextRequest) {
         console.log(`INFO: [chatId: ${chatId}] Webhook received message: "${text}"`);
 
         // Handle API Key check early
-        if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
+        const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+        if (!geminiKey?.trim()) {
             console.error("WEBHOOK_ERROR: Gemini API key is missing on the server.");
             await bot.sendMessage(chatId, "The bot is not configured correctly. The Gemini API key is missing on the server.");
             return NextResponse.json({ error: 'Gemini API key not configured.' }, { status: 500 });
@@ -252,7 +199,11 @@ export async function POST(req: NextRequest) {
         // Handle document modifications (replying to a bot message)
         const isReplyToBot = message.reply_to_message && message.reply_to_message.from.is_bot;
         const replyText = message.reply_to_message?.text || '';
-        if (isReplyToBot && (replyText.includes('Invoice Number:') || replyText.includes('Quotation Number:'))) {
+
+        // Check if the reply is to a message that contains our call-to-action for modifications
+        const isModificationReply = isReplyToBot && replyText.includes('To make changes, simply reply');
+        
+        if (isModificationReply) {
             await handleModificationRequest(chatId, text, replyText, message.message_id);
             return NextResponse.json({ status: 'ok' });
         }
@@ -265,7 +216,7 @@ export async function POST(req: NextRequest) {
 
     } catch (error: any) {
         console.error(`FATAL: Unhandled error in webhook top-level processing.`);
-        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+        const errorMessage = error instanceof Error ? `${error.message} (Name: ${error.name})` : JSON.stringify(error);
         const errorStack = error instanceof Error ? error.stack : 'No stack available';
         console.error(`--> Error Message: ${errorMessage}`);
         console.error(`--> Error Stack: ${errorStack}`);
@@ -274,5 +225,3 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Failed to process update' }, { status: 500 });
     }
 }
-
-    
