@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { FileText, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Logo } from '@/components/icons';
+import pako from 'pako';
 
 function ViewQuotationPage() {
     const searchParams = useSearchParams();
@@ -19,12 +20,21 @@ function ViewQuotationPage() {
         const dataParam = searchParams.get('data');
         if (dataParam) {
             try {
-                const decodedJson = atob(dataParam);
-                const parsedData = JSON.parse(decodedJson);
+                // Decode Base64 to binary string
+                const binaryString = atob(dataParam);
+                 // Convert binary string to Uint8Array
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                // Decompress
+                const decompressedJson = pako.inflate(bytes, { to: 'string' });
+                const parsedData = JSON.parse(decompressedJson);
                 setQuotationData(parsedData);
             } catch (e) {
                 console.error("Failed to parse quotation data:", e);
-                setError("Invalid quotation data provided in the link.");
+                setError("Invalid quotation data provided. The link may be corrupted or in an old format.");
             }
         } else {
             setError("No quotation data found in the link.");

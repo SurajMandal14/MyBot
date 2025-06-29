@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import TelegramBot from 'node-telegram-bot-api';
 import { modifyInvoiceAction, parseInvoiceAction, parseQuotationAction } from '@/app/actions';
+import pako from 'pako';
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const publicUrl = process.env.PUBLIC_URL;
@@ -31,7 +32,8 @@ async function generateInvoiceReply(invoiceData: any) {
 
     if (publicUrl) {
         const jsonData = JSON.stringify(invoiceData);
-        const base64Data = Buffer.from(jsonData).toString('base64');
+        const compressedData = pako.deflate(jsonData);
+        const base64Data = Buffer.from(compressedData).toString('base64');
         const invoiceUrl = `${publicUrl}/view-invoice?data=${base64Data}`;
 
         replyOptions.reply_markup = {
@@ -55,7 +57,8 @@ async function generateQuotationReply(quotationData: any) {
 
     if (publicUrl) {
         const jsonData = JSON.stringify(quotationData);
-        const base64Data = Buffer.from(jsonData).toString('base64');
+        const compressedData = pako.deflate(jsonData);
+        const base64Data = Buffer.from(compressedData).toString('base64');
         const quotationUrl = `${publicUrl}/view-quotation?data=${base64Data}`;
 
         replyOptions.reply_markup = {
@@ -149,8 +152,9 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
             return;
          }
 
-         const documentDetails = Buffer.from(base64Data, 'base64').toString('utf-8');
-         console.log(`INFO: [chatId: ${chatId}] Extracted document details for modification.`);
+         const compressedData = Buffer.from(base64Data, 'base64');
+         const documentDetails = pako.inflate(compressedData, { to: 'string' });
+         console.log(`INFO: [chatId: ${chatId}] Extracted and decompressed document details for modification.`);
          
          const result = await modifyInvoiceAction({
              documentDetails: documentDetails,
@@ -158,7 +162,7 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
          });
 
          if (result.success && result.data) {
-             console.log("INFO: [chatId: ${chatId}] Modification successful. Generating new reply.");
+             console.log(`INFO: [chatId: ${chatId}] Modification successful. Generating new reply.`);
              const modifiedData = result.data as any;
 
              const isInvoice = 'invoiceNumber' in modifiedData;
