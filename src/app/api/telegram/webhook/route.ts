@@ -202,6 +202,8 @@ export async function POST(req: NextRequest) {
             if (isQuotation) {
                 console.log("INFO: Parsing as quotation.");
                 const result = await parseQuotationAction({ text });
+                console.log("INFO: Quotation parsing result:", JSON.stringify(result, null, 2));
+
                  if (result.success && result.data) {
                     const { customerName, vehicleNumber, carModel } = result.data;
                     
@@ -225,6 +227,8 @@ export async function POST(req: NextRequest) {
             } else {
                 console.log("INFO: Parsing as invoice.");
                 const result = await parseInvoiceAction({ text });
+                console.log("INFO: Invoice parsing result:", JSON.stringify(result, null, 2));
+
                 if (result.success && result.data) {
                     const { customerName, vehicleNumber, carModel } = result.data;
                     
