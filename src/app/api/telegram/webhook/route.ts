@@ -6,14 +6,9 @@ import { modifyInvoiceAction, parseInvoiceAction, parseQuotationAction } from '@
 import pako from 'pako';
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
-const publicUrl = process.env.PUBLIC_URL;
 
 if (!token) {
     console.warn("TELEGRAM_BOT_TOKEN is not set. The Telegram bot will not work.");
-}
-
-if (!publicUrl) {
-    console.warn("PUBLIC_URL is not set. PDF link generation from the bot will not work.");
 }
 
 const bot = token ? new TelegramBot(token, { polling: false }) : null;
@@ -26,6 +21,7 @@ function escapeTelegramMarkdown(text: string): string {
 }
 
 async function generateInvoiceReply(invoiceData: any) {
+    const publicUrl = process.env.PUBLIC_URL;
     if (!publicUrl) {
         console.error("FATAL: PUBLIC_URL environment variable is not set on the server. The bot cannot generate PDF links.");
         const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable in the Vercel project settings.";
@@ -37,7 +33,7 @@ async function generateInvoiceReply(invoiceData: any) {
     const jsonData = JSON.stringify(invoiceData);
     const compressedData = pako.deflate(jsonData);
     const base64Data = Buffer.from(compressedData).toString('base64');
-    const invoiceUrl = `${publicUrl}/view-invoice?data=${base64Data}`;
+    const invoiceUrl = `${publicUrl.replace(/\/$/, '')}/view-invoice?data=${base64Data}`;
 
     const replyOptions: TelegramBot.SendMessageOptions = {
         reply_markup: {
@@ -53,6 +49,7 @@ async function generateInvoiceReply(invoiceData: any) {
 }
 
 async function generateQuotationReply(quotationData: any) {
+    const publicUrl = process.env.PUBLIC_URL;
     if (!publicUrl) {
         console.error("FATAL: PUBLIC_URL environment variable is not set on the server. The bot cannot generate PDF links.");
         const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable in the Vercel project settings.";
@@ -64,7 +61,7 @@ async function generateQuotationReply(quotationData: any) {
     const jsonData = JSON.stringify(quotationData);
     const compressedData = pako.deflate(jsonData);
     const base64Data = Buffer.from(compressedData).toString('base64');
-    const quotationUrl = `${publicUrl}/view-quotation?data=${base64Data}`;
+    const quotationUrl = `${publicUrl.replace(/\/$/, '')}/view-quotation?data=${base64Data}`;
 
     const replyOptions: TelegramBot.SendMessageOptions = {
         reply_markup: {
