@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -63,7 +64,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
                 </div>
             </div>
             <div className="w-48 h-24 relative -mt-2">
-                 <Image src="https://i.ibb.co/L5R9RZM/flywheels-logo.png" alt="Flywheels Logo" layout="fill" objectFit="contain" />
+                 <Image src="https://i.ibb.co/L5R9RZM/flywheels-logo.png" alt="Flywheels Logo" fill style={{ objectFit: 'contain' }} />
             </div>
         </header>
 
