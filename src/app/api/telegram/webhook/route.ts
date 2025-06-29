@@ -7,11 +7,8 @@ import { modifyInvoiceAction, parseInvoiceAction, parseQuotationAction } from '@
 // rather than in the code, especially in a serverless environment.
 //
 // To set the webhook, run the following command in your terminal,
-// replacing <YOUR_BOT_TOKEN> and <YOUR_PUBLIC_URL>:
-// curl -F "url=<YOUR_PUBLIC_URL>/api/telegram/webhook" https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook
-//
-// Example:
-// curl -F "url=https://your-app-name.web.app/api/telegram/webhook" https://api.telegram.org/bot123456:ABC-DEF123456/setWebhook
+// replacing <YOUR_BOT_TOKEN> with your actual bot token:
+// curl -F "url=https://my-bot-i1o7.vercel.app/api/telegram/webhook" https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const publicUrl = process.env.PUBLIC_URL;
