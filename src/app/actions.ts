@@ -26,8 +26,8 @@ export async function parseInvoiceAction(input: ParseServiceDetailsInput): Promi
     try {
         const parsedData = await parseServiceDetails(input);
         
-        // Ensure numbers are formatted correctly
-        const validatedItems = parsedData.items.map(item => ({
+        // Ensure numbers are formatted correctly and handle cases where items might be missing
+        const validatedItems = (parsedData.items || []).map(item => ({
             ...item,
             quantity: Number(item.quantity) || 0,
             unitPrice: Number(item.unitPrice) || 0,
@@ -70,7 +70,7 @@ export async function parseQuotationAction(input: ParseQuotationDetailsInput): P
     try {
         const parsedData = await parseQuotationDetails(input);
         
-        const validatedItems = parsedData.items.map(item => ({
+        const validatedItems = (parsedData.items || []).map(item => ({
             ...item,
             quantity: Number(item.quantity) || 0,
             unitPrice: Number(item.unitPrice) || 0,
