@@ -46,84 +46,112 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
   }
 
   return (
-    <div id="invoice-print-area" className="bg-white text-black p-8 font-body text-[10px] w-full h-full overflow-auto relative">
-        <div className="text-primary/20 -rotate-90 origin-top-left absolute top-0 left-8 tracking-[.3em] text-5xl font-light z-0" style={{writingMode: 'vertical-rl'}}>
-            Invoice [{invoiceData.invoiceNumber || 'N/A'}]
-        </div>
-        
-        <div className="relative z-10 flex flex-col h-full pl-12">
-            <header className="flex justify-between items-start">
-                <div>
-                    <h1 className="text-2xl font-bold text-primary">
-                        FLYWHEELS <span className="font-light text-lg text-foreground">THE AUTO EXPERTS</span>
-                    </h1>
-                    <p className="text-gray-500 mt-2 text-xs">Ayush hospital road, beside Saibaba temple</p>
-                    <p className="text-gray-500 text-xs">Nagarjuna Nagar, Currency Nagar</p>
-                    <p className="text-gray-500 text-xs">Vijayawada, Andhra Pradesh -520008</p>
-                </div>
-                <div className="w-32 h-20 relative">
-                     <Image src="https://storage.googleapis.com/idx-dev-01-public-images/showcase-flywheels-logo.png" alt="Flywheels Logo" fill style={{ objectFit: 'contain' }} data-ai-hint="car logo" />
-                </div>
-            </header>
-
-            <div className="w-full h-px bg-primary/50 my-4"></div>
-            
-            <div className="grid grid-cols-3 gap-4 text-xs">
-                 <div>
-                    <p className="font-bold text-primary">Date</p>
-                    <p>{currentDate}</p>
-                </div>
-                <div>
-                    <p className="font-bold text-primary">To</p>
-                    <p>{invoiceData.customerName || 'N/A'}</p>
-                </div>
-                <div>
-                    <p className="font-bold text-primary">Ship To</p>
-                    <p>In-Store</p>
-                </div>
+    <div id="invoice-print-area" className="bg-white text-black p-8 font-body text-[10px] w-full h-full overflow-auto">
+        <div className="relative z-10 flex flex-col h-full">
+            <div className="text-primary/10 -rotate-90 origin-top-left absolute top-1/2 left-8 tracking-[.3em] text-5xl font-light z-0" style={{writingMode: 'vertical-rl'}}>
+                Invoice [{invoiceData.invoiceNumber || 'N/A'}]
             </div>
             
-            <div className="w-full h-px bg-gray-200 my-4"></div>
+            <div className="pl-12 flex-grow flex flex-col">
+                <header className="flex justify-between items-start">
+                    <div>
+                        <h1 className="text-2xl font-bold text-primary">
+                            FLYWHEELS <span className="font-light text-lg text-foreground">THE AUTO EXPERTS</span>
+                        </h1>
+                        <p className="text-gray-500 mt-2 text-xs">Ayush hospital road, beside Saibaba temple</p>
+                        <p className="text-gray-500 text-xs">Nagarjuna Nagar, Currency Nagar</p>
+                        <p className="text-gray-500 text-xs">Vijayawada, Andhra Pradesh -520008</p>
+                    </div>
+                    <div className="w-32 h-20 relative">
+                        <Image src="https://i.ibb.co/6y4nL0B/showcase-flywheels-logo-red.png" alt="Flywheels Logo" fill style={{ objectFit: 'contain' }} data-ai-hint="car logo" />
+                    </div>
+                </header>
 
-            <div className="text-xs">
-                 <p className="font-bold text-primary mb-1">Vehicle Details</p>
-                 <p>{invoiceData.carModel || 'N/A'}</p>
-                 <p>{invoiceData.vehicleNumber || 'N/A'}</p>
-            </div>
+                <div className="w-full h-px bg-primary/50 my-4"></div>
+                
+                <div className="grid grid-cols-3 gap-4 text-xs">
+                    <div>
+                        <p className="font-bold text-primary">Date</p>
+                        <p>{currentDate}</p>
+                    </div>
+                    <div>
+                        <p className="font-bold text-primary">To</p>
+                        <p>{invoiceData.customerName || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p className="font-bold text-primary">Ship To</p>
+                        <p>In-Store</p>
+                    </div>
+                </div>
+                
+                <div className="w-full h-px bg-gray-200 my-4"></div>
 
-            <main className="flex-grow pt-4">
-                <Table>
-                    <TableHeader>
-                        <TableRow className="bg-primary hover:bg-primary/90">
-                            <TableHead className="text-primary-foreground w-[50px]">Serial No.</TableHead>
-                            <TableHead className="text-primary-foreground w-[45%]">Description</TableHead>
-                            <TableHead className="text-primary-foreground text-right">Unit Price</TableHead>
-                            <TableHead className="text-primary-foreground text-right">Quantity</TableHead>
-                            <TableHead className="text-primary-foreground text-right">Total</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {invoiceData.items.map((item, index) => (
-                            <TableRow key={index} className="border-b-gray-200">
-                                <TableCell className="text-center">{index + 1}</TableCell>
-                                <TableCell className="font-medium">{item.description}</TableCell>
-                                <TableCell className="text-right">{item.unitPrice && item.unitPrice > 0 ? formatCurrency(item.unitPrice) : ''}</TableCell>
-                                <TableCell className="text-right">{item.quantity || ''}</TableCell>
-                                <TableCell className="text-right font-medium">{formatCurrency(item.total)}</TableCell>
+                <div className="text-xs">
+                    <p className="font-bold text-primary mb-1">Vehicle Details</p>
+                    <p>{invoiceData.carModel || 'N/A'}</p>
+                    <p>{invoiceData.vehicleNumber || 'N/A'}</p>
+                </div>
+
+                <main className="flex-grow pt-4">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-primary hover:bg-primary/90">
+                                <TableHead className="text-primary-foreground w-[50px]">Serial No.</TableHead>
+                                <TableHead className="text-primary-foreground w-[45%]">Description</TableHead>
+                                <TableHead className="text-primary-foreground text-right">Unit Price</TableHead>
+                                <TableHead className="text-primary-foreground text-right">Quantity</TableHead>
+                                <TableHead className="text-primary-foreground text-right">Total</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </main>
-            
-            <div className="mt-auto flex flex-col items-end">
-                <div className="w-full h-px bg-gray-200 mt-4"></div>
-                <div className="flex justify-between items-center w-[250px] pt-2">
-                    <span className="font-bold text-sm">GRAND TOTAL</span>
-                    <span className="font-bold text-sm">{formatCurrency(grandTotal)}</span>
-                </div>
-                <div className="text-center pt-8 pb-4">
-                    <p className="text-primary font-semibold text-xs">Thanks for choosing us to serve your automotive needs!</p>
+                        </TableHeader>
+                        <TableBody>
+                            {invoiceData.items.map((item, index) => (
+                                <TableRow key={index} className="border-b-gray-200">
+                                    <TableCell className="text-center">{index + 1}</TableCell>
+                                    <TableCell className="font-medium">{item.description}</TableCell>
+                                    <TableCell className="text-right">{item.unitPrice && item.unitPrice > 0 ? formatCurrency(item.unitPrice) : ''}</TableCell>
+                                    <TableCell className="text-right">{item.quantity || ''}</TableCell>
+                                    <TableCell className="text-right font-medium">{formatCurrency(item.total)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </main>
+                
+                 <div className="mt-auto">
+                    <div className="flex flex-col items-end">
+                        <div className="w-full h-px bg-gray-200 mt-4"></div>
+                        <div className="flex justify-between items-center w-[250px] pt-2">
+                            <span className="font-bold text-sm">GRAND TOTAL</span>
+                            <span className="font-bold text-sm">{formatCurrency(grandTotal)}</span>
+                        </div>
+                    </div>
+                    
+                    <footer className="mt-12 pt-4 border-t border-gray-300 text-[9px]">
+                        <div className="grid grid-cols-2 gap-x-4">
+                            <div>
+                                <div className="flex">
+                                    <p className="w-10 font-bold text-primary">Tel:</p>
+                                    <div className="flex flex-col">
+                                        <p>+ 91-9966783333</p>
+                                        <p>+ 91-9563998998</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <div className="flex">
+                                    <p className="w-10 font-bold text-primary">Email:</p>
+                                    <p>flywheelsauto.vjy@gmail.com</p>
+                                </div>
+                                <div className="flex mt-1">
+                                    <p className="w-10 font-bold text-primary">Web:</p>
+                                    <p>www.flywheelsauto.in</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="text-center text-gray-400 mt-4 text-[8px]">
+                            <p>A 2LYP create</p>
+                        </div>
+                    </footer>
                 </div>
             </div>
         </div>
