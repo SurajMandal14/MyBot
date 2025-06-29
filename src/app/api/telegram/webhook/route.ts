@@ -28,10 +28,14 @@ async function generateInvoiceReply(invoiceData: any, title: string) {
     responseText += `*Items*:\n`;
 
     let totalAmount = 0;
-    items.forEach((item: any) => {
-        responseText += `- ${item.description}: ${item.total}\n`;
-        totalAmount += item.total;
-    });
+    if (Array.isArray(items)) {
+        items.forEach((item: any) => {
+            const description = item.description || 'N/A';
+            const total = item.total || 0;
+            responseText += `- ${description}: ${total}\n`;
+            totalAmount += total;
+        });
+    }
 
     responseText += `\n*Grand Total:* ${totalAmount.toFixed(2)}`;
     
@@ -70,10 +74,15 @@ async function generateQuotationReply(quotationData: any, title: string) {
     responseText += `*Items*:\n`;
 
     let totalAmount = 0;
-    items.forEach((item: any) => {
-        responseText += `- ${item.description}: ${item.total}\n`;
-        totalAmount += item.total;
-    });
+    if (Array.isArray(items)) {
+        items.forEach((item: any) => {
+            const description = item.description || 'N/A';
+            const total = item.total || 0;
+            responseText += `- ${description}: ${total}\n`;
+            totalAmount += total;
+        });
+    }
+
 
     responseText += `\n*Estimated Total:* ${totalAmount.toFixed(2)}`;
     
