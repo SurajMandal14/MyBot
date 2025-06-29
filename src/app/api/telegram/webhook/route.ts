@@ -26,49 +26,53 @@ function escapeTelegramMarkdown(text: string): string {
 }
 
 async function generateInvoiceReply(invoiceData: any) {
+    if (!publicUrl) {
+        console.error("FATAL: PUBLIC_URL environment variable is not set on the server. The bot cannot generate PDF links.");
+        const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable in the Vercel project settings.";
+        return { responseText, replyOptions: {} };
+    }
+
     let responseText = `Your invoice has been created successfully.\n\nClick the button below to view, print, or save as a PDF.`;
     
-    const replyOptions: TelegramBot.SendMessageOptions = {};
+    const jsonData = JSON.stringify(invoiceData);
+    const compressedData = pako.deflate(jsonData);
+    const base64Data = Buffer.from(compressedData).toString('base64');
+    const invoiceUrl = `${publicUrl}/view-invoice?data=${base64Data}`;
 
-    if (publicUrl) {
-        const jsonData = JSON.stringify(invoiceData);
-        const compressedData = pako.deflate(jsonData);
-        const base64Data = Buffer.from(compressedData).toString('base64');
-        const invoiceUrl = `${publicUrl}/view-invoice?data=${base64Data}`;
-
-        replyOptions.reply_markup = {
+    const replyOptions: TelegramBot.SendMessageOptions = {
+        reply_markup: {
             inline_keyboard: [
                 [{ text: '📄 View and Print Invoice', url: invoiceUrl }]
             ]
-        };
-    } else {
-        responseText += `\n\n(PDF link generation is disabled. Please set the PUBLIC_URL environment variable.)`;
-    }
-
+        }
+    };
+    
     responseText += `\n\n(To make changes, simply reply to this message with your request, e.g., "remove engine oil")`;
 
     return { responseText, replyOptions };
 }
 
 async function generateQuotationReply(quotationData: any) {
-    let responseText = `Your quotation has been created successfully.\n\nClick the button below to view, print, or save as a PDF.`;
+    if (!publicUrl) {
+        console.error("FATAL: PUBLIC_URL environment variable is not set on the server. The bot cannot generate PDF links.");
+        const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable in the Vercel project settings.";
+        return { responseText, replyOptions: {} };
+    }
     
-    const replyOptions: TelegramBot.SendMessageOptions = {};
+    let responseText = `Your quotation has been created successfully.\n\nClick the button below to view, print, or save as a PDF.`;
 
-    if (publicUrl) {
-        const jsonData = JSON.stringify(quotationData);
-        const compressedData = pako.deflate(jsonData);
-        const base64Data = Buffer.from(compressedData).toString('base64');
-        const quotationUrl = `${publicUrl}/view-quotation?data=${base64Data}`;
+    const jsonData = JSON.stringify(quotationData);
+    const compressedData = pako.deflate(jsonData);
+    const base64Data = Buffer.from(compressedData).toString('base64');
+    const quotationUrl = `${publicUrl}/view-quotation?data=${base64Data}`;
 
-        replyOptions.reply_markup = {
+    const replyOptions: TelegramBot.SendMessageOptions = {
+        reply_markup: {
             inline_keyboard: [
                 [{ text: '📄 View and Print Quotation', url: quotationUrl }]
             ]
-        };
-    } else {
-        responseText += `\n\n(PDF link generation is disabled. Please set the PUBLIC_URL environment variable.)`;
-    }
+        }
+    };
     
     responseText += `\n\n(To make changes, simply reply to this message with your request, e.g., "add front bumper for 2500")`;
 
@@ -112,7 +116,8 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
 
         let finalResponseText = responseText;
 
-        if (missingFields.length > 0) {
+        // Only add the missing fields warning if the link was successfully generated
+        if (Object.keys(replyOptions).length > 0 && missingFields.length > 0) {
             const missingFieldsText = missingFields.join(', ');
             // Append the warning about missing fields to the standard reply.
             const followUpText = `\n\nHowever, I'm still missing some essential details: *${escapeTelegramMarkdown(missingFieldsText)}*\\.`;
@@ -181,7 +186,7 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
              const replyGenerator = isInvoice ? generateInvoiceReply : generateQuotationReply;
              
              const { responseText, replyOptions } = await replyGenerator(modifiedData);
-             await bot!.editMessageText(responseText, { chat_id: chatId, message_id: processingMessage.message_id, ...replyOptions });
+             await bot!.editMessageText(responseText, { chat_id: chatId, message_id: processingMessage.message_id, ...replyOptions, parse_mode: 'MarkdownV2' });
          } else {
              console.error(`ERROR: [chatId: ${chatId}] Modification failed:`, result.message);
              await bot!.editMessageText(`Sorry, I couldn't apply that change. Error: ${result.message}`, { chat_id: chatId, message_id: processingMessage.message_id });
@@ -247,12 +252,8 @@ export async function POST(req: NextRequest) {
         
         // Handle document modifications (replying to a bot message)
         const isReplyToBot = message.reply_to_message && message.reply_to_message.from.is_bot;
-        const replyText = message.reply_to_message?.text || '';
 
-        // Check if the reply is to a message that contains our call-to-action for modifications
-        const isModificationReply = isReplyToBot && (replyText.includes('To make changes, simply reply') || replyText.includes('I\'m still missing some essential details'));
-        
-        if (isModificationReply) {
+        if (isReplyToBot) {
             await handleModificationRequest(chatId, text, message.reply_to_message, message.message_id);
             return NextResponse.json({ status: 'ok' });
         }
