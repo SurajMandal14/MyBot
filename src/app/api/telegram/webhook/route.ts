@@ -99,22 +99,34 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
         }
 
         const data = result.data;
+        const replyGenerator = isQuotation ? generateQuotationReply : generateInvoiceReply;
+        // Generate the base reply with the button first, even if data is partial.
+        const { responseText, replyOptions } = await replyGenerator(data);
+        
+        // Now, check for missing fields to append a warning if necessary.
         const missingFields = [];
         if (!data.customerName?.trim()) missingFields.push('Customer Name');
         if (!data.vehicleNumber?.trim()) missingFields.push('Vehicle Number');
         if (!data.carModel?.trim()) missingFields.push('Car Model');
         if (!data.items || data.items.length === 0) missingFields.push('Line Items');
 
+        let finalResponseText = responseText;
+
         if (missingFields.length > 0) {
             const missingFieldsText = missingFields.join(', ');
-            const responseText = `I've parsed what I could, but I'm missing some essential details: ${missingFieldsText}.\n\nPlease send your service notes again, including the missing information.`;
-            await bot!.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id });
-        } else {
-            console.log(`INFO: [chatId: ${chatId}] Parsing successful. Generating reply.`);
-            const replyGenerator = isQuotation ? generateQuotationReply : generateInvoiceReply;
-            const { responseText, replyOptions } = await replyGenerator(data);
-            await bot!.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, ...replyOptions });
+            // Append the warning about missing fields to the standard reply.
+            const followUpText = `\n\nHowever, I'm still missing some essential details: *${escapeTelegramMarkdown(missingFieldsText)}*\\.`;
+            finalResponseText += followUpText;
         }
+
+        console.log(`INFO: [chatId: ${chatId}] Sending final reply.`);
+        // Send the final message, which will have the button and may have the warning.
+        await bot!.editMessageText(finalResponseText, { 
+            chat_id: chatId, 
+            message_id: parsingMessage.message_id, 
+            ...replyOptions,
+            parse_mode: 'MarkdownV2' 
+        });
 
     } catch (error: any) {
         console.error(`FATAL: [chatId: ${chatId}] Unhandled error during new document request.`);
@@ -238,7 +250,7 @@ export async function POST(req: NextRequest) {
         const replyText = message.reply_to_message?.text || '';
 
         // Check if the reply is to a message that contains our call-to-action for modifications
-        const isModificationReply = isReplyToBot && replyText.includes('To make changes, simply reply');
+        const isModificationReply = isReplyToBot && (replyText.includes('To make changes, simply reply') || replyText.includes('I\'m still missing some essential details'));
         
         if (isModificationReply) {
             await handleModificationRequest(chatId, text, message.reply_to_message, message.message_id);
