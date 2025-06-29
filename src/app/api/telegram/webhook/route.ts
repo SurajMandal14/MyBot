@@ -111,10 +111,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Telegram bot not configured.' }, { status: 500 });
     }
     
-    if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
-        return NextResponse.json({ error: 'Gemini API key not configured.' }, { status: 500 });
-    }
-
     try {
         const body = await req.json();
         const message = body.message;
@@ -124,6 +120,13 @@ export async function POST(req: NextRequest) {
         }
 
         const chatId = message.chat.id;
+
+        // NEW: Check for API Key and notify user in chat if it's missing
+        if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
+            await bot.sendMessage(chatId, "The bot is not configured correctly. The Gemini API key is missing on the server. Please add it to your Vercel environment variables.");
+            return NextResponse.json({ error: 'Gemini API key not configured.' }, { status: 500 });
+        }
+
         const isReplyToBot = message.reply_to_message && message.reply_to_message.from.is_bot;
         const replyText = message.reply_to_message?.text || '';
         
