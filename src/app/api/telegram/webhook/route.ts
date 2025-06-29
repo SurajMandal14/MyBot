@@ -22,8 +22,8 @@ function escapeTelegramMarkdown(text: string): string {
 
 async function generateInvoiceReply(invoiceData: any) {
     const publicUrl = process.env.PUBLIC_URL;
-    if (!publicUrl) {
-        console.error("FATAL: PUBLIC_URL environment variable is not set on the server. The bot cannot generate PDF links.");
+    if (!publicUrl || !publicUrl.trim()) {
+        console.error(`FATAL: PUBLIC_URL environment variable is not set or is empty. Value: "${publicUrl}". The bot cannot generate PDF links.`);
         const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable in the Vercel project settings.";
         return { responseText, replyOptions: {} };
     }
@@ -50,8 +50,8 @@ async function generateInvoiceReply(invoiceData: any) {
 
 async function generateQuotationReply(quotationData: any) {
     const publicUrl = process.env.PUBLIC_URL;
-    if (!publicUrl) {
-        console.error("FATAL: PUBLIC_URL environment variable is not set on the server. The bot cannot generate PDF links.");
+    if (!publicUrl || !publicUrl.trim()) {
+        console.error(`FATAL: PUBLIC_URL environment variable is not set or is empty. Value: "${publicUrl}". The bot cannot generate PDF links.`);
         const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable in the Vercel project settings.";
         return { responseText, replyOptions: {} };
     }
