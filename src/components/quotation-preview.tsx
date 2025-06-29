@@ -83,7 +83,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
             </div>
         </div>
         
-        <div className="py-2 mt-4 border-t border-red-200">
+        <div className="py-2 mt-4 border-t border-border">
              <p className="font-bold text-primary text-xs">Vehicle Details</p>
              <div className="grid grid-cols-2 gap-4 mt-1">
                 <div>
@@ -121,7 +121,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
                 </TableBody>
                 <TableFooter>
                     <TableRow className="border-t-2 border-primary">
-                        <TableCell colSpan={4} className="text-right font-bold text-base">GRAND TOTAL</TableCell>
+                        <TableCell colSpan={4} className="text-right font-bold text-base">ESTIMATED TOTAL</TableCell>
                         <TableCell className="text-right font-bold text-base">{formatCurrency(grandTotal)}</TableCell>
                     </TableRow>
                 </TableFooter>
