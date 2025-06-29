@@ -1,5 +1,7 @@
 import { InvoiceCreator } from '@/components/invoice-creator';
+import { QuotationCreator } from '@/components/quotation-creator';
 import { Logo } from '@/components/icons';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Home() {
   return (
@@ -12,10 +14,24 @@ export default function Home() {
           </h1>
         </div>
         <p className="max-w-[700px] text-muted-foreground md:text-xl">
-          Paste your vehicle service notes in any format. Our AI will instantly parse them into a professional invoice that you can edit and share.
+          Paste your vehicle service notes in any format. Our AI will instantly parse them into a professional invoice or quotation that you can edit and share.
         </p>
       </div>
-      <InvoiceCreator />
+
+      <Tabs defaultValue="invoice" className="w-full">
+        <div className="flex justify-center mb-8">
+            <TabsList>
+                <TabsTrigger value="invoice">Invoice Creator</TabsTrigger>
+                <TabsTrigger value="quotation">Quotation Creator</TabsTrigger>
+            </TabsList>
+        </div>
+        <TabsContent value="invoice">
+            <InvoiceCreator />
+        </TabsContent>
+        <TabsContent value="quotation">
+            <QuotationCreator />
+        </TabsContent>
+      </Tabs>
     </main>
   );
 }
