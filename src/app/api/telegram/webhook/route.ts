@@ -131,7 +131,29 @@ export async function POST(req: NextRequest) {
         const isReplyToBot = message.reply_to_message && message.reply_to_message.from.is_bot;
         const replyText = message.reply_to_message?.text || '';
         
-        // Handle document modifications first
+        // Handle specific commands first
+        if (text === '/start') {
+            await bot.sendMessage(chatId, 'Welcome to Flywheels bot, select your action', {
+                reply_markup: {
+                    keyboard: [[{ text: 'Invoice' }, { text: 'Quotation' }]],
+                    resize_keyboard: true,
+                    one_time_keyboard: true,
+                }
+            });
+            return NextResponse.json({ status: 'ok' });
+        }
+        
+        if (text === 'Invoice') {
+            await bot.sendMessage(chatId, 'Please send your service notes in a single message.');
+            return NextResponse.json({ status: 'ok' });
+        }
+
+        if (text === 'Quotation') {
+            await bot.sendMessage(chatId, 'Please send your service notes for the quotation in a single message.');
+            return NextResponse.json({ status: 'ok' });
+        }
+        
+        // Handle document modifications
         if (isReplyToBot && (replyText.includes('Invoice Number:') || replyText.includes('Quotation Number:'))) {
             console.log("INFO: Detected a reply to a document. Processing as modification.");
             const processingMessage = await bot.sendMessage(chatId, 'Applying your changes, please wait...');
@@ -162,28 +184,6 @@ export async function POST(req: NextRequest) {
             }
             return NextResponse.json({ status: 'ok' });
         }
-
-        // Handle specific commands
-        if (text === '/start') {
-            await bot.sendMessage(chatId, 'Welcome to Flywheels bot, select your action', {
-                reply_markup: {
-                    keyboard: [[{ text: 'Invoice' }, { text: 'Quotation' }]],
-                    resize_keyboard: true,
-                    one_time_keyboard: true,
-                }
-            });
-            return NextResponse.json({ status: 'ok' });
-        }
-        
-        if (text === 'Invoice') {
-            await bot.sendMessage(chatId, 'Please send your service notes in a single message.');
-            return NextResponse.json({ status: 'ok' });
-        }
-
-        if (text === 'Quotation') {
-            await bot.sendMessage(chatId, 'Please send your service notes for the quotation in a single message.');
-            return NextResponse.json({ status: 'ok' });
-        }
         
         // Fallback to parsing the text as a new document
         const parsingMessage = await bot.sendMessage(chatId, 'Parsing your text, please wait...');
@@ -194,8 +194,22 @@ export async function POST(req: NextRequest) {
                 console.log("INFO: Parsing as quotation.");
                 const result = await parseQuotationAction({ text });
                  if (result.success && result.data) {
-                     const { responseText, replyOptions } = await generateQuotationReply(result.data, "Quotation Details Parsed Successfully");
-                     await bot.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, ...replyOptions });
+                    const { customerName, vehicleNumber, carModel } = result.data;
+                    
+                    const missingFields = [];
+                    if (!customerName?.trim()) missingFields.push('Customer Name');
+                    if (!vehicleNumber?.trim()) missingFields.push('Vehicle Number');
+                    if (!carModel?.trim()) missingFields.push('Car Model');
+
+                    if (missingFields.length > 0) {
+                        const missingFieldsText = missingFields.map(f => `*${f}*`).join(', ');
+                        const responseText = `I've parsed the quotation, but I'm missing some essential details: ${missingFieldsText}.\n\nPlease send the notes again, including the missing information.`;
+                        
+                        await bot.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, parse_mode: 'Markdown' });
+                    } else {
+                        const { responseText, replyOptions } = await generateQuotationReply(result.data, "Quotation Details Parsed Successfully");
+                        await bot.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, ...replyOptions });
+                    }
                  } else {
                       await bot.editMessageText(`Sorry, I couldn't parse that as a quotation. Error: ${result.error}`, { chat_id: chatId, message_id: parsingMessage.message_id });
                  }
