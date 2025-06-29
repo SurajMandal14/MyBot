@@ -21,59 +21,71 @@ function escapeTelegramMarkdown(text: string): string {
 }
 
 async function generateInvoiceReply(invoiceData: any) {
-    const publicUrl = process.env.PUBLIC_URL;
-    if (!publicUrl || !publicUrl.trim()) {
-        console.error(`FATAL: PUBLIC_URL environment variable is not set or is empty. Value: "${publicUrl}". The bot cannot generate PDF links.`);
-        const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable in the Vercel project settings.";
+    try {
+        const publicUrl = process.env.PUBLIC_URL;
+        if (!publicUrl || !publicUrl.trim()) {
+            console.error(`FATAL: PUBLIC_URL environment variable is not set or is empty. The bot cannot generate PDF links.`);
+            const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable.";
+            return { responseText, replyOptions: {} };
+        }
+
+        let responseText = `Your invoice has been created successfully.\n\nClick the button below to view, print, or save as a PDF.`;
+        
+        const jsonData = JSON.stringify(invoiceData);
+        const compressedData = pako.deflate(jsonData);
+        const base64Data = Buffer.from(compressedData).toString('base64');
+        const invoiceUrl = `${publicUrl.replace(/\/$/, '')}/view-invoice?data=${base64Data}`;
+
+        const replyOptions: TelegramBot.SendMessageOptions = {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '📄 View and Print Invoice', url: invoiceUrl }]
+                ]
+            }
+        };
+        
+        responseText += `\n\n(To make changes, simply reply to this message with your request, e.g., "remove engine oil")`;
+
+        return { responseText, replyOptions };
+    } catch(error: any) {
+        console.error(`ERROR: Failed to generate invoice reply link. Data might be malformed.`, error);
+        const responseText = `Your invoice was parsed, but an internal error occurred while creating the PDF link. Please check the server logs for details.`;
         return { responseText, replyOptions: {} };
     }
-
-    let responseText = `Your invoice has been created successfully.\n\nClick the button below to view, print, or save as a PDF.`;
-    
-    const jsonData = JSON.stringify(invoiceData);
-    const compressedData = pako.deflate(jsonData);
-    const base64Data = Buffer.from(compressedData).toString('base64');
-    const invoiceUrl = `${publicUrl.replace(/\/$/, '')}/view-invoice?data=${base64Data}`;
-
-    const replyOptions: TelegramBot.SendMessageOptions = {
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: '📄 View and Print Invoice', url: invoiceUrl }]
-            ]
-        }
-    };
-    
-    responseText += `\n\n(To make changes, simply reply to this message with your request, e.g., "remove engine oil")`;
-
-    return { responseText, replyOptions };
 }
 
 async function generateQuotationReply(quotationData: any) {
-    const publicUrl = process.env.PUBLIC_URL;
-    if (!publicUrl || !publicUrl.trim()) {
-        console.error(`FATAL: PUBLIC_URL environment variable is not set or is empty. Value: "${publicUrl}". The bot cannot generate PDF links.`);
-        const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable in the Vercel project settings.";
+    try {
+        const publicUrl = process.env.PUBLIC_URL;
+        if (!publicUrl || !publicUrl.trim()) {
+            console.error(`FATAL: PUBLIC_URL environment variable is not set or is empty. The bot cannot generate PDF links.`);
+            const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable.";
+            return { responseText, replyOptions: {} };
+        }
+        
+        let responseText = `Your quotation has been created successfully.\n\nClick the button below to view, print, or save as a PDF.`;
+
+        const jsonData = JSON.stringify(quotationData);
+        const compressedData = pako.deflate(jsonData);
+        const base64Data = Buffer.from(compressedData).toString('base64');
+        const quotationUrl = `${publicUrl.replace(/\/$/, '')}/view-quotation?data=${base64Data}`;
+
+        const replyOptions: TelegramBot.SendMessageOptions = {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '📄 View and Print Quotation', url: quotationUrl }]
+                ]
+            }
+        };
+        
+        responseText += `\n\n(To make changes, simply reply to this message with your request, e.g., "add front bumper for 2500")`;
+
+        return { responseText, replyOptions };
+    } catch(error: any) {
+        console.error(`ERROR: Failed to generate quotation reply link. Data might be malformed.`, error);
+        const responseText = `Your quotation was parsed, but an internal error occurred while creating the PDF link. Please check the server logs for details.`;
         return { responseText, replyOptions: {} };
     }
-    
-    let responseText = `Your quotation has been created successfully.\n\nClick the button below to view, print, or save as a PDF.`;
-
-    const jsonData = JSON.stringify(quotationData);
-    const compressedData = pako.deflate(jsonData);
-    const base64Data = Buffer.from(compressedData).toString('base64');
-    const quotationUrl = `${publicUrl.replace(/\/$/, '')}/view-quotation?data=${base64Data}`;
-
-    const replyOptions: TelegramBot.SendMessageOptions = {
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: '📄 View and Print Quotation', url: quotationUrl }]
-            ]
-        }
-    };
-    
-    responseText += `\n\n(To make changes, simply reply to this message with your request, e.g., "add front bumper for 2500")`;
-
-    return { responseText, replyOptions };
 }
 
 
