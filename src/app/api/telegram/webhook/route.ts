@@ -113,13 +113,14 @@ export async function POST(req: NextRequest) {
 
         const message = body.message;
 
-        if (!message) {
-            console.log("INFO: No message found in body. This might be a non-message update from Telegram. Replying OK.");
+        if (!message || !message.text) {
+            console.log("INFO: No message text found in body. Ignoring.");
             return NextResponse.json({ status: 'ok' });
         }
-
+        
         const chatId = message.chat.id;
-        console.log(`INFO: Processing message for chat ID: ${chatId}`);
+        const text = message.text;
+        console.log(`INFO: Processing message "${text}" for chat ID: ${chatId}`);
 
         if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
             console.error("WEBHOOK_ERROR: Gemini API key is missing on the server.");
@@ -130,76 +131,66 @@ export async function POST(req: NextRequest) {
         const isReplyToBot = message.reply_to_message && message.reply_to_message.from.is_bot;
         const replyText = message.reply_to_message?.text || '';
         
+        // Handle document modifications first
         if (isReplyToBot && (replyText.includes('Invoice Number:') || replyText.includes('Quotation Number:'))) {
             console.log("INFO: Detected a reply to a document. Processing as modification.");
-            const originalDocumentText = replyText;
-            const modificationRequest = message.text;
-
             const processingMessage = await bot.sendMessage(chatId, 'Applying your changes, please wait...');
-            console.log(`INFO: Attempting to modify document for chat ID: ${chatId}`);
 
-            const result = await modifyInvoiceAction({
-                documentDetails: originalDocumentText,
-                modificationRequest: modificationRequest,
-            });
+            try {
+                const result = await modifyInvoiceAction({
+                    documentDetails: replyText,
+                    modificationRequest: text,
+                });
 
-            if (result.success && result.data) {
-                console.log("INFO: Modification successful. Generating new reply.");
-                let replyGenerator;
-                let title;
-                const modifiedData = result.data as any;
+                if (result.success && result.data) {
+                    console.log("INFO: Modification successful. Generating new reply.");
+                    const modifiedData = result.data as any;
 
-                if (modifiedData.invoiceNumber) {
-                    replyGenerator = generateInvoiceReply;
-                    title = "Invoice Details Updated";
-                } else if (modifiedData.quotationNumber) {
-                    replyGenerator = generateQuotationReply;
-                    title = "Quotation Details Updated";
-                }
-
-                if (replyGenerator && title) {
-                    const { responseText, replyOptions } = await replyGenerator(modifiedData, title);
+                    const isInvoice = 'invoiceNumber' in modifiedData;
+                    const { responseText, replyOptions } = isInvoice
+                        ? await generateInvoiceReply(modifiedData, "Invoice Details Updated")
+                        : await generateQuotationReply(modifiedData, "Quotation Details Updated");
+                    
                     await bot.editMessageText(responseText, { chat_id: chatId, message_id: processingMessage.message_id, ...replyOptions });
                 } else {
-                     await bot.editMessageText(`Sorry, I couldn't process the document type after modification.`, { chat_id: chatId, message_id: processingMessage.message_id });
+                    console.error(`ERROR: Modification failed for chat ID ${chatId}:`, result.message);
+                    await bot.editMessageText(`Sorry, I couldn't apply that change. Error: ${result.message}`, { chat_id: chatId, message_id: processingMessage.message_id });
                 }
-            } else {
-                console.error(`ERROR: Modification failed for chat ID ${chatId}:`, result.message);
-                await bot.editMessageText(`Sorry, I couldn't apply that change. Error: ${result.message}`, { chat_id: chatId, message_id: processingMessage.message_id });
+            } catch (error: any) {
+                console.error(`FATAL: Unhandled error during modification for chat ID ${chatId}:`, error);
+                await bot.editMessageText(`A critical error occurred while modifying the document. Please try again.`, { chat_id: chatId, message_id: processingMessage.message_id });
             }
             return NextResponse.json({ status: 'ok' });
         }
 
-        if (message.text) {
-            const text = message.text;
-            console.log(`INFO: Processing text command "${text}" for chat ID: ${chatId}`);
+        // Handle specific commands
+        if (text === '/start') {
+            await bot.sendMessage(chatId, 'Welcome to Flywheels bot, select your action', {
+                reply_markup: {
+                    keyboard: [[{ text: 'Invoice' }, { text: 'Quotation' }]],
+                    resize_keyboard: true,
+                    one_time_keyboard: true,
+                }
+            });
+            return NextResponse.json({ status: 'ok' });
+        }
+        
+        if (text === 'Invoice') {
+            await bot.sendMessage(chatId, 'Please send your service notes in a single message.');
+            return NextResponse.json({ status: 'ok' });
+        }
 
-            if (text === '/start') {
-                await bot.sendMessage(chatId, 'Welcome to Flywheels bot, select your action', {
-                    reply_markup: {
-                        keyboard: [[{ text: 'Invoice' }, { text: 'Quotation' }]],
-                        resize_keyboard: true,
-                        one_time_keyboard: true,
-                    }
-                });
-                return NextResponse.json({ status: 'ok' });
-            }
-            
-            if (text === 'Invoice') {
-                await bot.sendMessage(chatId, 'Please send your service notes in a single message.');
-                return NextResponse.json({ status: 'ok' });
-            }
+        if (text === 'Quotation') {
+            await bot.sendMessage(chatId, 'Please send your service notes for the quotation in a single message.');
+            return NextResponse.json({ status: 'ok' });
+        }
+        
+        // Fallback to parsing the text as a new document
+        const parsingMessage = await bot.sendMessage(chatId, 'Parsing your text, please wait...');
+        const isQuotation = text.toLowerCase().includes('quote') || text.toLowerCase().includes('quotation');
 
-            if (text === 'Quotation') {
-                await bot.sendMessage(chatId, 'Please send your service notes for the quotation in a single message.');
-                return NextResponse.json({ status: 'ok' });
-            }
-            
-            const parsingMessage = await bot.sendMessage(chatId, 'Parsing your text, please wait...');
-            
-            const isQuotation = text.toLowerCase().includes('quote') || text.toLowerCase().includes('quotation');
-
-            if(isQuotation) {
+        try {
+            if (isQuotation) {
                 console.log("INFO: Parsing as quotation.");
                 const result = await parseQuotationAction({ text });
                  if (result.success && result.data) {
@@ -211,7 +202,6 @@ export async function POST(req: NextRequest) {
             } else {
                 console.log("INFO: Parsing as invoice.");
                 const result = await parseInvoiceAction({ text });
-
                 if (result.success && result.data) {
                     const { customerName, vehicleNumber, carModel } = result.data;
                     
@@ -233,13 +223,17 @@ export async function POST(req: NextRequest) {
                     await bot.editMessageText(`Sorry, I couldn't parse that. Error: ${result.error}`, { chat_id: chatId, message_id: parsingMessage.message_id });
                 }
             }
+        } catch(error: any) {
+            console.error(`FATAL: Unhandled error during parsing for chat ID ${chatId}:`, error);
+            await bot.editMessageText(`A critical error occurred while parsing your notes. Please try again.`, { chat_id: chatId, message_id: parsingMessage.message_id });
         }
         
         console.log(`INFO: Finished processing request for chat ID: ${chatId}`);
         return NextResponse.json({ status: 'ok' });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('FATAL: Unhandled error in webhook processing:', error);
+        // We can't guarantee a chat ID is available here, so we just log and return.
         return NextResponse.json({ error: 'Failed to process update' }, { status: 500 });
     }
 }
