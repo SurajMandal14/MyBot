@@ -47,14 +47,14 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
 
   return (
     <div id="quotation-print-area" className="bg-white text-black p-8 font-body text-[10px] w-full h-full overflow-auto relative">
-        <div className="text-gray-200 -rotate-180 origin-center absolute top-[35%] left-[25px] tracking-[.3em] text-5xl font-light z-0" style={{writingMode: 'vertical-rl'}}>
-            QUOTATION
+        <div className="text-gray-300 -rotate-180 origin-center absolute top-[20%] left-4 tracking-[.3em] text-3xl font-light z-0" style={{writingMode: 'vertical-rl'}}>
+            Quotation [{quotationData.quotationNumber || 'N/A'}]
         </div>
 
-        <div className="relative z-10 flex flex-col h-full">
+        <div className="relative z-10 flex flex-col h-full pl-16">
             <header className="flex justify-between items-start pb-4">
                 <div className="flex items-start">
-                    <div className="pl-16">
+                    <div>
                         <h1 className="text-2xl font-bold text-primary flex items-center">
                             <span className="w-8 h-px bg-primary mr-2"></span>
                             FLYWHEELS <span className="font-light ml-2">THE AUTO EXPERTS</span>
@@ -71,17 +71,17 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
             </header>
 
             <div className="grid grid-cols-3 gap-4 pt-4 mt-4 border-t-2 border-primary">
-                 <div>
-                    <p className="font-bold text-gray-500">Quotation No.</p>
-                    <p>{quotationData.quotationNumber || 'N/A'}</p>
-                </div>
                 <div>
-                    <p className="font-bold text-gray-500">Date</p>
+                    <p className="font-bold text-primary">Date</p>
                     <p>{currentDate}</p>
                 </div>
                 <div>
-                    <p className="font-bold text-gray-500">To</p>
+                    <p className="font-bold text-primary">To</p>
                     <p>{quotationData.customerName || 'N/A'}</p>
+                </div>
+                 <div>
+                    <p className="font-bold text-primary">Ship To</p>
+                    <p>In-Store</p>
                 </div>
             </div>
             
