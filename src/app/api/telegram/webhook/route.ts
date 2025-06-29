@@ -239,7 +239,7 @@ export async function POST(req: NextRequest) {
         if (isModificationReply) {
             await handleModificationRequest(chatId, text, message.reply_to_message, message.message_id);
             return NextResponse.json({ status: 'ok' });
-_        }
+        }
         
         // If not a command or reply, assume it's a new document request
         await handleNewDocumentRequest(chatId, text, message.message_id);
