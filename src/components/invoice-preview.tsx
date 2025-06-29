@@ -60,7 +60,7 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
                 <p className="text-gray-600">Vijayawada, Andhra Pradesh -520008</p>
             </div>
             <div className="w-48 h-24 relative">
-                 <Image src="https://i.ibb.co/JqjJvJh/flywheels-logo-1.png" alt="Flywheels Logo" fill style={{ objectFit: 'contain' }} />
+                 <Image src="https://i.ibb.co/L5R9RZM/flywheels-logo.png" alt="Flywheels Logo" fill style={{ objectFit: 'contain' }} />
             </div>
         </header>
 
@@ -118,6 +118,9 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
         
         <div className="text-center py-8">
             <p className="text-red-500 font-semibold">Thanks for choosing us to serve your automotive needs!</p>
+        </div>
+        <div className="absolute bottom-4 right-8 font-code text-xs text-gray-400">
+            A 2LYP create
         </div>
     </div>
   );

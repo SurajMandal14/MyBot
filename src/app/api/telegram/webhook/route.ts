@@ -194,12 +194,12 @@ export async function POST(req: NextRequest) {
             }
             
             if (text === 'Invoice') {
-                await bot.sendMessage(chatId, 'Please send the service notes for the invoice.');
+                await bot.sendMessage(chatId, 'Please send your service notes in a single message.');
                 return NextResponse.json({ status: 'ok' });
             }
 
             if (text === 'Quotation') {
-                await bot.sendMessage(chatId, 'Please send the service notes for the quotation.');
+                await bot.sendMessage(chatId, 'Please send your service notes for the quotation in a single message.');
                 return NextResponse.json({ status: 'ok' });
             }
 

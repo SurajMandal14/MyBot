@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'InvoiceCraft Bot',
+  title: 'Flywheels Bot',
   description: 'Intelligently parse service details and generate professional invoices.',
 };
 
