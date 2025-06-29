@@ -17,22 +17,34 @@ if (!publicUrl) {
 
 const bot = token ? new TelegramBot(token, { polling: false }) : null;
 
+// This helper function escapes characters that have special meaning in Telegram's 'Markdown' parse mode.
+function sanitizeForMarkdown(text: string | undefined | null): string {
+    if (!text) return 'N/A';
+    // We only need to escape a few characters for the legacy 'Markdown' mode.
+    return text
+        .toString()
+        .replace(/_/g, '\\_')
+        .replace(/\*/g, '\\*')
+        .replace(/`/g, '\\`')
+        .replace(/\[/g, '\\[');
+}
+
 async function generateInvoiceReply(invoiceData: any, title: string) {
     const { customerName, vehicleNumber, carModel, items, invoiceNumber } = invoiceData;
 
     let responseText = `*${title}*:\n\n`;
-    responseText += `*Invoice Number:* ${invoiceNumber}\n\n`;
-    responseText += `*Customer:* ${customerName || 'N/A'}\n`;
-    responseText += `*Vehicle:* ${vehicleNumber || 'N/A'}\n`;
-    responseText += `*Model:* ${carModel || 'N/A'}\n\n`;
+    responseText += `*Invoice Number:* ${sanitizeForMarkdown(invoiceNumber)}\n\n`;
+    responseText += `*Customer:* ${sanitizeForMarkdown(customerName)}\n`;
+    responseText += `*Vehicle:* ${sanitizeForMarkdown(vehicleNumber)}\n`;
+    responseText += `*Model:* ${sanitizeForMarkdown(carModel)}\n\n`;
     responseText += `*Items*:\n`;
 
     let totalAmount = 0;
     if (Array.isArray(items)) {
         items.forEach((item: any) => {
-            const description = item.description || 'N/A';
+            const description = sanitizeForMarkdown(item.description);
             const total = item.total || 0;
-            responseText += `- ${description}: ${total}\n`;
+            responseText += `- ${description}: ${total.toFixed(2)}\n`;
             totalAmount += total;
         });
     }
@@ -66,18 +78,18 @@ async function generateQuotationReply(quotationData: any, title: string) {
     const { customerName, vehicleNumber, carModel, items, quotationNumber } = quotationData;
 
     let responseText = `*${title}*:\n\n`;
-    responseText += `*Quotation Number:* ${quotationNumber}\n\n`;
-    responseText += `*Customer:* ${customerName || 'N/A'}\n`;
-    responseText += `*Vehicle:* ${vehicleNumber || 'N/A'}\n`;
-    responseText += `*Model:* ${carModel || 'N/A'}\n\n`;
+    responseText += `*Quotation Number:* ${sanitizeForMarkdown(quotationNumber)}\n\n`;
+    responseText += `*Customer:* ${sanitizeForMarkdown(customerName)}\n`;
+    responseText += `*Vehicle:* ${sanitizeForMarkdown(vehicleNumber)}\n`;
+    responseText += `*Model:* ${sanitizeForMarkdown(carModel)}\n\n`;
     responseText += `*Items*:\n`;
 
     let totalAmount = 0;
     if (Array.isArray(items)) {
         items.forEach((item: any) => {
-            const description = item.description || 'N/A';
+            const description = sanitizeForMarkdown(item.description);
             const total = item.total || 0;
-            responseText += `- ${description}: ${total}\n`;
+            responseText += `- ${description}: ${total.toFixed(2)}\n`;
             totalAmount += total;
         });
     }
@@ -146,7 +158,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
         }
 
     } catch (error: any) {
-        console.error(`FATAL: [chatId: ${chatId}] Unhandled error during parsing:`, error);
+        console.error(`FATAL: [chatId: ${chatId}] Unhandled error during parsing: ${error instanceof Error ? error.stack : JSON.stringify(error)}`);
         await bot!.editMessageText(`A critical error occurred while parsing your notes. Please try again.`, { chat_id: chatId, message_id: parsingMessage.message_id });
     }
 }
@@ -176,7 +188,7 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
              await bot!.editMessageText(`Sorry, I couldn't apply that change. Error: ${result.message}`, { chat_id: chatId, message_id: processingMessage.message_id });
          }
      } catch (error: any) {
-         console.error(`FATAL: [chatId: ${chatId}] Unhandled error during modification:`, error);
+         console.error(`FATAL: [chatId: ${chatId}] Unhandled error during modification: ${error instanceof Error ? error.stack : JSON.stringify(error)}`);
          await bot!.editMessageText(`A critical error occurred while modifying the document. Please try again.`, { chat_id: chatId, message_id: processingMessage.message_id });
      }
 }
@@ -243,7 +255,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'ok' });
 
     } catch (error: any) {
-        console.error('FATAL: Unhandled error in webhook top-level processing:', error);
+        console.error(`FATAL: Unhandled error in webhook top-level processing: ${error instanceof Error ? error.stack : JSON.stringify(error)}`);
         // We might not have a chatId here if the request body is malformed.
         // We can't reliably send a message back.
         return NextResponse.json({ error: 'Failed to process update' }, { status: 500 });
