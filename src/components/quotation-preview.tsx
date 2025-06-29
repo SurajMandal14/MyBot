@@ -45,13 +45,18 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
   }
 
   return (
-    <div id="quotation-print-area" className="bg-white text-black p-8 font-body text-[10px] w-full h-full overflow-auto">
+    <div id="quotation-print-area" className="relative bg-white text-black p-8 font-body text-[10px] w-full h-full overflow-auto">
+        {/* Watermark */}
+        <div 
+            className="absolute top-1/4 left-8 text-primary/10 font-light z-0 flex items-center"
+            style={{ writingMode: 'vertical-rl' }}
+        >
+            <div className="text-7xl tracking-[0.2em] whitespace-nowrap">QUOTATION</div>
+            <div className="text-5xl tracking-[0.1em] ml-4">[{quotationData.quotationNumber || 'N/A'}]</div>
+        </div>
+        
         <div className="relative z-10 flex flex-col h-full">
-            <div className="text-primary/10 -rotate-90 origin-top-left absolute top-1/2 left-8 tracking-[.3em] text-5xl font-light z-0" style={{writingMode: 'vertical-rl'}}>
-                Quotation [{quotationData.quotationNumber || 'N/A'}]
-            </div>
-
-            <div className="pl-12 flex-grow flex flex-col">
+            <div className="pl-24 flex-grow flex flex-col">
                 <header className="flex justify-between items-start">
                     <div>
                         <h1 className="text-2xl font-bold text-primary">
