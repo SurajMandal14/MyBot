@@ -47,14 +47,14 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
   }
 
   return (
-    <div id="invoice-print-area" className="bg-white text-black p-8 font-sans text-[10px] w-full h-full overflow-auto flex flex-col relative">
+    <div id="invoice-print-area" className="bg-white text-black p-8 font-body text-[10px] w-full h-full overflow-auto flex flex-col relative">
         <div className="text-gray-700 -rotate-180 origin-center absolute top-1/2 left-[15px] tracking-[.2em] text-2xl font-light" style={{writingMode: 'vertical-rl'}}>
             Invoice [{invoiceData.invoiceNumber || '000000'}]
         </div>
         
-        <header className="flex justify-between items-start pb-4 pl-12 border-b-2 border-red-500">
+        <header className="flex justify-between items-start pb-4 pl-12 border-b-2 border-primary">
             <div>
-                <h1 className="text-2xl font-bold text-red-600">FLYWHEELS <span className="font-light">THE AUTO EXPERTS</span></h1>
+                <h1 className="text-2xl font-bold text-primary">FLYWHEELS <span className="font-light">THE AUTO EXPERTS</span></h1>
                 <p className="text-gray-600 mt-2">Ayush hospital road, beside Saibaba temple</p>
                 <p className="text-gray-600">Nagarjuna Nagar, Currency Nagar</p>
                 <p className="text-gray-600">Vijayawada, Andhra Pradesh -520008</p>
@@ -64,7 +64,7 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
             </div>
         </header>
 
-        <div className="grid grid-cols-3 gap-4 py-4 text-xs border-b-2 border-red-500 pl-12">
+        <div className="grid grid-cols-3 gap-4 py-4 text-xs border-b-2 border-primary pl-12">
             <div>
                 <p className="font-bold text-gray-500">Date</p>
                 <p>{currentDate}</p>
@@ -74,13 +74,13 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
                 <p>{invoiceData.customerName || 'N/A'}</p>
             </div>
              <div>
-                <p className="font-bold text-red-500">Ship To</p>
+                <p className="font-bold text-primary">Ship To</p>
                 <p>In-Store</p>
             </div>
         </div>
         
-        <div className="py-4 pl-12 border-b-2 border-red-500">
-             <p className="font-bold text-red-500 text-xs">Vehicle Details</p>
+        <div className="py-4 pl-12 border-b-2 border-primary">
+             <p className="font-bold text-primary text-xs">Vehicle Details</p>
              <p className="font-bold">{invoiceData.carModel || 'N/A'}</p>
              <p>{invoiceData.vehicleNumber || 'N/A'}</p>
         </div>
@@ -88,12 +88,12 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
         <main className="flex-grow pt-4 pl-12">
             <Table>
                 <TableHeader>
-                    <TableRow className="bg-red-500 hover:bg-red-600 border-none">
-                        <TableHead className="text-white w-[50px]">Serial No.</TableHead>
-                        <TableHead className="text-white w-1/2">Description</TableHead>
-                        <TableHead className="text-white">Unit Price</TableHead>
-                        <TableHead className="text-white">Quantity</TableHead>
-                        <TableHead className="text-white text-right">Total</TableHead>
+                    <TableRow className="bg-primary hover:bg-primary/90 border-none">
+                        <TableHead className="text-primary-foreground w-[50px]">Serial No.</TableHead>
+                        <TableHead className="text-primary-foreground w-1/2">Description</TableHead>
+                        <TableHead className="text-primary-foreground">Unit Price</TableHead>
+                        <TableHead className="text-primary-foreground">Quantity</TableHead>
+                        <TableHead className="text-primary-foreground text-right">Total</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -108,7 +108,7 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
                     ))}
                 </TableBody>
                 <TableFooter>
-                    <TableRow className="border-t-2 border-red-500 hover:bg-white">
+                    <TableRow className="border-t-2 border-primary hover:bg-white">
                         <TableCell colSpan={4} className="text-right font-bold text-base">GRAND TOTAL</TableCell>
                         <TableCell className="text-right font-bold text-base">{formatCurrency(grandTotal)}</TableCell>
                     </TableRow>
@@ -117,7 +117,7 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
         </main>
         
         <div className="text-center py-8">
-            <p className="text-red-500 font-semibold">Thanks for choosing us to serve your automotive needs!</p>
+            <p className="text-primary font-semibold">Thanks for choosing us to serve your automotive needs!</p>
         </div>
         <div className="absolute bottom-4 right-8 font-code text-xs text-gray-400">
             A 2LYP create
