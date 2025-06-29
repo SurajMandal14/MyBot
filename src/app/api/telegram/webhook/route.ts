@@ -1,14 +1,8 @@
+
 // src/app/api/telegram/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import TelegramBot from 'node-telegram-bot-api';
 import { modifyInvoiceAction, parseInvoiceAction, parseQuotationAction } from '@/app/actions';
-
-// It's recommended to set the webhook via a manual cURL command or a setup script
-// rather than in the code, especially in a serverless environment.
-//
-// To set the webhook, run the following command in your terminal,
-// replacing <YOUR_BOT_TOKEN> with your actual bot token:
-// curl -F "url=https://my-bot-i1o7.vercel.app/api/telegram/webhook" https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const publicUrl = process.env.PUBLIC_URL;
@@ -21,7 +15,6 @@ if (!publicUrl) {
     console.warn("PUBLIC_URL is not set. PDF link generation from the bot will not work.");
 }
 
-// When using webhooks, it's crucial to set polling to false to prevent conflicts.
 const bot = token ? new TelegramBot(token, { polling: false }) : null;
 
 async function generateInvoiceReply(invoiceData: any, title: string) {
@@ -108,21 +101,28 @@ async function generateQuotationReply(quotationData: any, title: string) {
 
 export async function POST(req: NextRequest) {
     if (!bot) {
+        console.error("WEBHOOK_ERROR: Bot not initialized. TELEGRAM_BOT_TOKEN likely missing in Vercel environment variables.");
         return NextResponse.json({ error: 'Telegram bot not configured.' }, { status: 500 });
     }
     
+    console.log("INFO: Webhook received a request.");
+
     try {
         const body = await req.json();
+        console.log("INFO: Request body parsed:", JSON.stringify(body, null, 2));
+
         const message = body.message;
 
         if (!message) {
+            console.log("INFO: No message found in body. This might be a non-message update from Telegram. Replying OK.");
             return NextResponse.json({ status: 'ok' });
         }
 
         const chatId = message.chat.id;
+        console.log(`INFO: Processing message for chat ID: ${chatId}`);
 
-        // NEW: Check for API Key and notify user in chat if it's missing
         if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
+            console.error("WEBHOOK_ERROR: Gemini API key is missing on the server.");
             await bot.sendMessage(chatId, "The bot is not configured correctly. The Gemini API key is missing on the server. Please add it to your Vercel environment variables.");
             return NextResponse.json({ error: 'Gemini API key not configured.' }, { status: 500 });
         }
@@ -130,12 +130,13 @@ export async function POST(req: NextRequest) {
         const isReplyToBot = message.reply_to_message && message.reply_to_message.from.is_bot;
         const replyText = message.reply_to_message?.text || '';
         
-        // Handle modification requests (replies to the bot's own invoice/quotation messages)
         if (isReplyToBot && (replyText.includes('Invoice Number:') || replyText.includes('Quotation Number:'))) {
+            console.log("INFO: Detected a reply to a document. Processing as modification.");
             const originalDocumentText = replyText;
             const modificationRequest = message.text;
 
             const processingMessage = await bot.sendMessage(chatId, 'Applying your changes, please wait...');
+            console.log(`INFO: Attempting to modify document for chat ID: ${chatId}`);
 
             const result = await modifyInvoiceAction({
                 documentDetails: originalDocumentText,
@@ -143,9 +144,9 @@ export async function POST(req: NextRequest) {
             });
 
             if (result.success && result.data) {
+                console.log("INFO: Modification successful. Generating new reply.");
                 let replyGenerator;
                 let title;
-                // Type assertion to help TypeScript
                 const modifiedData = result.data as any;
 
                 if (modifiedData.invoiceNumber) {
@@ -158,30 +159,20 @@ export async function POST(req: NextRequest) {
 
                 if (replyGenerator && title) {
                     const { responseText, replyOptions } = await replyGenerator(modifiedData, title);
-                    await bot.editMessageText(responseText, {
-                        chat_id: chatId,
-                        message_id: processingMessage.message_id,
-                        ...replyOptions
-                    });
+                    await bot.editMessageText(responseText, { chat_id: chatId, message_id: processingMessage.message_id, ...replyOptions });
                 } else {
-                     await bot.editMessageText(`Sorry, I couldn't process the document type after modification.`, {
-                        chat_id: chatId,
-                        message_id: processingMessage.message_id,
-                    });
+                     await bot.editMessageText(`Sorry, I couldn't process the document type after modification.`, { chat_id: chatId, message_id: processingMessage.message_id });
                 }
             } else {
-                await bot.editMessageText(`Sorry, I couldn't apply that change. Error: ${result.message}`, {
-                    chat_id: chatId,
-                    message_id: processingMessage.message_id,
-                });
+                console.error(`ERROR: Modification failed for chat ID ${chatId}:`, result.message);
+                await bot.editMessageText(`Sorry, I couldn't apply that change. Error: ${result.message}`, { chat_id: chatId, message_id: processingMessage.message_id });
             }
             return NextResponse.json({ status: 'ok' });
         }
 
-
-        // Handle regular messages and commands
         if (message.text) {
             const text = message.text;
+            console.log(`INFO: Processing text command "${text}" for chat ID: ${chatId}`);
 
             if (text === '/start') {
                 await bot.sendMessage(chatId, 'Welcome to Flywheels bot, select your action', {
@@ -203,28 +194,22 @@ export async function POST(req: NextRequest) {
                 await bot.sendMessage(chatId, 'Please send your service notes for the quotation in a single message.');
                 return NextResponse.json({ status: 'ok' });
             }
-
             
             const parsingMessage = await bot.sendMessage(chatId, 'Parsing your text, please wait...');
             
             const isQuotation = text.toLowerCase().includes('quote') || text.toLowerCase().includes('quotation');
 
             if(isQuotation) {
+                console.log("INFO: Parsing as quotation.");
                 const result = await parseQuotationAction({ text });
                  if (result.success && result.data) {
                      const { responseText, replyOptions } = await generateQuotationReply(result.data, "Quotation Details Parsed Successfully");
-                     await bot.editMessageText(responseText, {
-                         chat_id: chatId,
-                         message_id: parsingMessage.message_id,
-                         ...replyOptions
-                     });
+                     await bot.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, ...replyOptions });
                  } else {
-                      await bot.editMessageText(`Sorry, I couldn't parse that as a quotation. Error: ${result.error}`, {
-                         chat_id: chatId,
-                         message_id: parsingMessage.message_id,
-                     });
+                      await bot.editMessageText(`Sorry, I couldn't parse that as a quotation. Error: ${result.error}`, { chat_id: chatId, message_id: parsingMessage.message_id });
                  }
             } else {
+                console.log("INFO: Parsing as invoice.");
                 const result = await parseInvoiceAction({ text });
 
                 if (result.success && result.data) {
@@ -239,32 +224,22 @@ export async function POST(req: NextRequest) {
                         const missingFieldsText = missingFields.map(f => `*${f}*`).join(', ');
                         const responseText = `I've parsed what I could, but I'm missing some essential details: ${missingFieldsText}.\n\nPlease send your service notes again, including the missing information.`;
                         
-                        await bot.editMessageText(responseText, {
-                            chat_id: chatId,
-                            message_id: parsingMessage.message_id,
-                            parse_mode: 'Markdown'
-                        });
-
+                        await bot.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, parse_mode: 'Markdown' });
                     } else {
                         const { responseText, replyOptions } = await generateInvoiceReply(result.data, "Invoice Details Parsed Successfully");
-                        await bot.editMessageText(responseText, {
-                            chat_id: chatId,
-                            message_id: parsingMessage.message_id,
-                            ...replyOptions
-                        });
+                        await bot.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, ...replyOptions });
                     }
                 } else {
-                    await bot.editMessageText(`Sorry, I couldn't parse that. Error: ${result.error}`, {
-                        chat_id: chatId,
-                        message_id: parsingMessage.message_id,
-                    });
+                    await bot.editMessageText(`Sorry, I couldn't parse that. Error: ${result.error}`, { chat_id: chatId, message_id: parsingMessage.message_id });
                 }
             }
         }
-
+        
+        console.log(`INFO: Finished processing request for chat ID: ${chatId}`);
         return NextResponse.json({ status: 'ok' });
+
     } catch (error) {
-        console.error('Error processing Telegram update:', error);
+        console.error('FATAL: Unhandled error in webhook processing:', error);
         return NextResponse.json({ error: 'Failed to process update' }, { status: 500 });
     }
 }
