@@ -21,7 +21,8 @@ if (!publicUrl) {
     console.warn("PUBLIC_URL is not set. PDF link generation from the bot will not work.");
 }
 
-const bot = token ? new TelegramBot(token) : null;
+// When using webhooks, it's crucial to set polling to false to prevent conflicts.
+const bot = token ? new TelegramBot(token, { polling: false }) : null;
 
 async function generateInvoiceReply(invoiceData: any, title: string) {
     const { customerName, vehicleNumber, carModel, items, invoiceNumber } = invoiceData;
