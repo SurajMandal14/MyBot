@@ -22,9 +22,9 @@ async function generateInvoiceReply(invoiceData: any, title: string) {
 
     let responseText = `*${title}*:\n\n`;
     responseText += `*Invoice Number:* ${invoiceNumber}\n\n`;
-    responseText += `*Customer:* ${customerName}\n`;
-    responseText += `*Vehicle:* ${vehicleNumber}\n`;
-    responseText += `*Model:* ${carModel}\n\n`;
+    responseText += `*Customer:* ${customerName || 'N/A'}\n`;
+    responseText += `*Vehicle:* ${vehicleNumber || 'N/A'}\n`;
+    responseText += `*Model:* ${carModel || 'N/A'}\n\n`;
     responseText += `*Items*:\n`;
 
     let totalAmount = 0;
@@ -62,15 +62,14 @@ async function generateInvoiceReply(invoiceData: any, title: string) {
     return { responseText, replyOptions };
 }
 
-
 async function generateQuotationReply(quotationData: any, title: string) {
     const { customerName, vehicleNumber, carModel, items, quotationNumber } = quotationData;
 
     let responseText = `*${title}*:\n\n`;
     responseText += `*Quotation Number:* ${quotationNumber}\n\n`;
-    responseText += `*Customer:* ${customerName}\n`;
-    responseText += `*Vehicle:* ${vehicleNumber}\n`;
-    responseText += `*Model:* ${carModel}\n\n`;
+    responseText += `*Customer:* ${customerName || 'N/A'}\n`;
+    responseText += `*Vehicle:* ${vehicleNumber || 'N/A'}\n`;
+    responseText += `*Model:* ${carModel || 'N/A'}\n\n`;
     responseText += `*Items*:\n`;
 
     let totalAmount = 0;
@@ -82,7 +81,6 @@ async function generateQuotationReply(quotationData: any, title: string) {
             totalAmount += total;
         });
     }
-
 
     responseText += `\n*Estimated Total:* ${totalAmount.toFixed(2)}`;
     
@@ -108,38 +106,106 @@ async function generateQuotationReply(quotationData: any, title: string) {
 }
 
 
+// This function handles the main parsing logic for both invoices and quotations
+async function handleNewDocumentRequest(chatId: number, text: string, messageId: number) {
+    const isQuotation = text.toLowerCase().includes('quote') || text.toLowerCase().includes('quotation');
+    const docType = isQuotation ? 'Quotation' : 'Invoice';
+    
+    const parsingMessage = await bot!.sendMessage(chatId, `Parsing your text as a ${docType}, please wait...`);
+
+    try {
+        console.log(`INFO: [chatId: ${chatId}] Starting to parse ${docType} from text: "${text}"`);
+        
+        const action = isQuotation ? parseQuotationAction : parseInvoiceAction;
+        const result = await action({ text });
+
+        console.log(`INFO: [chatId: ${chatId}] AI Action Result:`, JSON.stringify(result, null, 2));
+
+        if (!result || !result.success || !result.data) {
+            const errorMessage = `Sorry, I couldn't parse that as a ${docType}. Error: ${result?.error || 'Unknown AI error'}`;
+            console.error(`ERROR: [chatId: ${chatId}] Parsing failed. Reason: ${result?.error}`);
+            await bot!.editMessageText(errorMessage, { chat_id: chatId, message_id: parsingMessage.message_id });
+            return;
+        }
+
+        const data = result.data;
+        const missingFields = [];
+        if (!data.customerName?.trim()) missingFields.push('Customer Name');
+        if (!data.vehicleNumber?.trim()) missingFields.push('Vehicle Number');
+        if (!data.carModel?.trim()) missingFields.push('Car Model');
+
+        if (missingFields.length > 0) {
+            const missingFieldsText = missingFields.map(f => `*${f}*`).join(', ');
+            const responseText = `I've parsed what I could, but I'm missing some essential details: ${missingFieldsText}.\n\nPlease send your service notes again, including the missing information.`;
+            await bot!.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, parse_mode: 'Markdown' });
+        } else {
+            console.log(`INFO: [chatId: ${chatId}] Parsing successful. Generating reply.`);
+            const replyGenerator = isQuotation ? generateQuotationReply : generateInvoiceReply;
+            const { responseText, replyOptions } = await replyGenerator(data, `${docType} Details Parsed Successfully`);
+            await bot!.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, ...replyOptions });
+        }
+
+    } catch (error: any) {
+        console.error(`FATAL: [chatId: ${chatId}] Unhandled error during parsing:`, error);
+        await bot!.editMessageText(`A critical error occurred while parsing your notes. Please try again.`, { chat_id: chatId, message_id: parsingMessage.message_id });
+    }
+}
+
+
+async function handleModificationRequest(chatId: number, modificationRequest: string, originalMessageText: string, messageId: number) {
+     const processingMessage = await bot!.sendMessage(chatId, 'Applying your changes, please wait...');
+     try {
+         console.log(`INFO: [chatId: ${chatId}] Starting modification request.`);
+         const result = await modifyInvoiceAction({
+             documentDetails: originalMessageText,
+             modificationRequest: modificationRequest,
+         });
+
+         if (result.success && result.data) {
+             console.log("INFO: [chatId: ${chatId}] Modification successful. Generating new reply.");
+             const modifiedData = result.data as any;
+
+             const isInvoice = 'invoiceNumber' in modifiedData;
+             const replyGenerator = isInvoice ? generateInvoiceReply : generateQuotationReply;
+             const docType = isInvoice ? 'Invoice' : 'Quotation';
+             
+             const { responseText, replyOptions } = await replyGenerator(modifiedData, `${docType} Details Updated`);
+             await bot!.editMessageText(responseText, { chat_id: chatId, message_id: processingMessage.message_id, ...replyOptions });
+         } else {
+             console.error(`ERROR: [chatId: ${chatId}] Modification failed:`, result.message);
+             await bot!.editMessageText(`Sorry, I couldn't apply that change. Error: ${result.message}`, { chat_id: chatId, message_id: processingMessage.message_id });
+         }
+     } catch (error: any) {
+         console.error(`FATAL: [chatId: ${chatId}] Unhandled error during modification:`, error);
+         await bot!.editMessageText(`A critical error occurred while modifying the document. Please try again.`, { chat_id: chatId, message_id: processingMessage.message_id });
+     }
+}
+
 export async function POST(req: NextRequest) {
     if (!bot) {
-        console.error("WEBHOOK_ERROR: Bot not initialized. TELEGRAM_BOT_TOKEN likely missing in Vercel environment variables.");
+        console.error("WEBHOOK_ERROR: Bot not initialized. TELEGRAM_BOT_TOKEN is likely missing.");
         return NextResponse.json({ error: 'Telegram bot not configured.' }, { status: 500 });
     }
     
-    console.log("INFO: Webhook received a request.");
-
     try {
         const body = await req.json();
-        console.log("INFO: Request body parsed:", JSON.stringify(body, null, 2));
-
         const message = body.message;
 
         if (!message || !message.text) {
-            console.log("INFO: No message text found in body. Ignoring.");
             return NextResponse.json({ status: 'ok' });
         }
         
         const chatId = message.chat.id;
-        const text = message.text;
-        console.log(`INFO: Processing message "${text}" for chat ID: ${chatId}`);
+        const text = message.text as string;
+        console.log(`INFO: [chatId: ${chatId}] Webhook received message: "${text}"`);
 
+        // Handle API Key check early
         if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) {
             console.error("WEBHOOK_ERROR: Gemini API key is missing on the server.");
-            await bot.sendMessage(chatId, "The bot is not configured correctly. The Gemini API key is missing on the server. Please add it to your Vercel environment variables.");
+            await bot.sendMessage(chatId, "The bot is not configured correctly. The Gemini API key is missing on the server.");
             return NextResponse.json({ error: 'Gemini API key not configured.' }, { status: 500 });
         }
 
-        const isReplyToBot = message.reply_to_message && message.reply_to_message.from.is_bot;
-        const replyText = message.reply_to_message?.text || '';
-        
         // Handle specific commands first
         if (text === '/start') {
             await bot.sendMessage(chatId, 'Welcome to Flywheels bot, select your action', {
@@ -162,105 +228,24 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ status: 'ok' });
         }
         
-        // Handle document modifications
+        // Handle document modifications (replying to a bot message)
+        const isReplyToBot = message.reply_to_message && message.reply_to_message.from.is_bot;
+        const replyText = message.reply_to_message?.text || '';
         if (isReplyToBot && (replyText.includes('Invoice Number:') || replyText.includes('Quotation Number:'))) {
-            console.log("INFO: Detected a reply to a document. Processing as modification.");
-            const processingMessage = await bot.sendMessage(chatId, 'Applying your changes, please wait...');
-
-            try {
-                const result = await modifyInvoiceAction({
-                    documentDetails: replyText,
-                    modificationRequest: text,
-                });
-
-                if (result.success && result.data) {
-                    console.log("INFO: Modification successful. Generating new reply.");
-                    const modifiedData = result.data as any;
-
-                    const isInvoice = 'invoiceNumber' in modifiedData;
-                    const { responseText, replyOptions } = isInvoice
-                        ? await generateInvoiceReply(modifiedData, "Invoice Details Updated")
-                        : await generateQuotationReply(modifiedData, "Quotation Details Updated");
-                    
-                    await bot.editMessageText(responseText, { chat_id: chatId, message_id: processingMessage.message_id, ...replyOptions });
-                } else {
-                    console.error(`ERROR: Modification failed for chat ID ${chatId}:`, result.message);
-                    await bot.editMessageText(`Sorry, I couldn't apply that change. Error: ${result.message}`, { chat_id: chatId, message_id: processingMessage.message_id });
-                }
-            } catch (error: any) {
-                console.error(`FATAL: Unhandled error during modification for chat ID ${chatId}:`, error);
-                await bot.editMessageText(`A critical error occurred while modifying the document. Please try again.`, { chat_id: chatId, message_id: processingMessage.message_id });
-            }
+            await handleModificationRequest(chatId, text, replyText, message.message_id);
             return NextResponse.json({ status: 'ok' });
         }
         
-        // Fallback to parsing the text as a new document
-        const parsingMessage = await bot.sendMessage(chatId, 'Parsing your text, please wait...');
-        const isQuotation = text.toLowerCase().includes('quote') || text.toLowerCase().includes('quotation');
-
-        try {
-            if (isQuotation) {
-                console.log("INFO: Parsing as quotation.");
-                const result = await parseQuotationAction({ text });
-                console.log("INFO: Quotation parsing result:", JSON.stringify(result, null, 2));
-
-                 if (result.success && result.data) {
-                    const { customerName, vehicleNumber, carModel } = result.data;
-                    
-                    const missingFields = [];
-                    if (!customerName?.trim()) missingFields.push('Customer Name');
-                    if (!vehicleNumber?.trim()) missingFields.push('Vehicle Number');
-                    if (!carModel?.trim()) missingFields.push('Car Model');
-
-                    if (missingFields.length > 0) {
-                        const missingFieldsText = missingFields.map(f => `*${f}*`).join(', ');
-                        const responseText = `I've parsed the quotation, but I'm missing some essential details: ${missingFieldsText}.\n\nPlease send the notes again, including the missing information.`;
-                        
-                        await bot.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, parse_mode: 'Markdown' });
-                    } else {
-                        const { responseText, replyOptions } = await generateQuotationReply(result.data, "Quotation Details Parsed Successfully");
-                        await bot.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, ...replyOptions });
-                    }
-                 } else {
-                      await bot.editMessageText(`Sorry, I couldn't parse that as a quotation. Error: ${result.error}`, { chat_id: chatId, message_id: parsingMessage.message_id });
-                 }
-            } else {
-                console.log("INFO: Parsing as invoice.");
-                const result = await parseInvoiceAction({ text });
-                console.log("INFO: Invoice parsing result:", JSON.stringify(result, null, 2));
-
-                if (result.success && result.data) {
-                    const { customerName, vehicleNumber, carModel } = result.data;
-                    
-                    const missingFields = [];
-                    if (!customerName?.trim()) missingFields.push('Customer Name');
-                    if (!vehicleNumber?.trim()) missingFields.push('Vehicle Number');
-                    if (!carModel?.trim()) missingFields.push('Car Model');
-
-                    if (missingFields.length > 0) {
-                        const missingFieldsText = missingFields.map(f => `*${f}*`).join(', ');
-                        const responseText = `I've parsed what I could, but I'm missing some essential details: ${missingFieldsText}.\n\nPlease send your service notes again, including the missing information.`;
-                        
-                        await bot.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, parse_mode: 'Markdown' });
-                    } else {
-                        const { responseText, replyOptions } = await generateInvoiceReply(result.data, "Invoice Details Parsed Successfully");
-                        await bot.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id, ...replyOptions });
-                    }
-                } else {
-                    await bot.editMessageText(`Sorry, I couldn't parse that. Error: ${result.error}`, { chat_id: chatId, message_id: parsingMessage.message_id });
-                }
-            }
-        } catch(error: any) {
-            console.error(`FATAL: Unhandled error during parsing for chat ID ${chatId}:`, error);
-            await bot.editMessageText(`A critical error occurred while parsing your notes. Please try again.`, { chat_id: chatId, message_id: parsingMessage.message_id });
-        }
+        // If not a command or reply, assume it's a new document request
+        await handleNewDocumentRequest(chatId, text, message.message_id);
         
-        console.log(`INFO: Finished processing request for chat ID: ${chatId}`);
+        console.log(`INFO: [chatId: ${chatId}] Finished processing request.`);
         return NextResponse.json({ status: 'ok' });
 
     } catch (error: any) {
-        console.error('FATAL: Unhandled error in webhook processing:', error);
-        // We can't guarantee a chat ID is available here, so we just log and return.
+        console.error('FATAL: Unhandled error in webhook top-level processing:', error);
+        // We might not have a chatId here if the request body is malformed.
+        // We can't reliably send a message back.
         return NextResponse.json({ error: 'Failed to process update' }, { status: 500 });
     }
 }
