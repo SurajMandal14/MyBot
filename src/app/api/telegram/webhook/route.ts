@@ -17,6 +17,13 @@ if (!publicUrl) {
 
 const bot = token ? new TelegramBot(token, { polling: false }) : null;
 
+// This function sanitizes text for Telegram's MarkdownV2 parser
+function escapeTelegramMarkdown(text: string): string {
+    if (!text) return '';
+    const escapeChars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
+    return text.split('').map(char => escapeChars.includes(char) ? '\\' + char : char).join('');
+}
+
 async function generateInvoiceReply(invoiceData: any) {
     let responseText = `Your invoice has been created successfully.\n\nClick the button below to view, print, or save as a PDF.`;
     
@@ -93,6 +100,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
         if (!data.customerName?.trim()) missingFields.push('Customer Name');
         if (!data.vehicleNumber?.trim()) missingFields.push('Vehicle Number');
         if (!data.carModel?.trim()) missingFields.push('Car Model');
+        if (!data.items || data.items.length === 0) missingFields.push('Line Items');
 
         if (missingFields.length > 0) {
             const missingFieldsText = missingFields.join(', ');
@@ -116,12 +124,36 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
 }
 
 
-async function handleModificationRequest(chatId: number, modificationRequest: string, originalMessageText: string, messageId: number) {
+async function handleModificationRequest(chatId: number, modificationRequest: string, originalMessage: TelegramBot.Message, messageId: number) {
      const processingMessage = await bot!.sendMessage(chatId, 'Applying your changes, please wait...');
      try {
-         console.log(`INFO: [chatId: ${chatId}] Starting modification request.`);
+         console.log(`INFO: [chatId: ${chatId}] Starting modification request on message ID ${originalMessage.message_id}.`);
+         
+         const inlineKeyboard = originalMessage.reply_markup?.inline_keyboard;
+         if (!inlineKeyboard || !inlineKeyboard[0] || !inlineKeyboard[0][0]) {
+             await bot!.editMessageText("Sorry, I couldn't find the original document data to modify. Please start a new request.", { chat_id: chatId, message_id: processingMessage.message_id });
+             return;
+         }
+
+         const button = inlineKeyboard[0][0];
+         if (!('url' in button)) {
+             await bot!.editMessageText("Sorry, the original message does not contain a valid document link to modify.", { chat_id: chatId, message_id: processingMessage.message_id });
+             return;
+         }
+
+         const docUrl = new URL(button.url);
+         const base64Data = docUrl.searchParams.get('data');
+
+         if (!base64Data) {
+            await bot!.editMessageText("Sorry, I couldn't extract the data from the document link.", { chat_id: chatId, message_id: processingMessage.message_id });
+            return;
+         }
+
+         const documentDetails = Buffer.from(base64Data, 'base64').toString('utf-8');
+         console.log(`INFO: [chatId: ${chatId}] Extracted document details for modification.`);
+         
          const result = await modifyInvoiceAction({
-             documentDetails: originalMessageText,
+             documentDetails: documentDetails,
              modificationRequest: modificationRequest,
          });
 
@@ -142,13 +174,14 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
          console.error(`FATAL: [chatId: ${chatId}] Unhandled error during modification request.`);
          const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
          const errorStack = error instanceof Error ? error.stack : 'No stack available';
-         console.error(`--> Error Message: ${errorMessage}`);
-         console.error(`--> Error Stack: ${errorStack}`);
-         await bot!.editMessageText(`A critical error occurred while modifying the document. Please try again.`, { chat_id: chatId, message_id: processingMessage.message_id });
+        console.error(`--> Error Message: ${errorMessage}`);
+        console.error(`--> Error Stack: ${errorStack}`);
+        await bot!.editMessageText(`A critical error occurred while modifying the document. Please try again.`, { chat_id: chatId, message_id: processingMessage.message_id });
      }
 }
 
 export async function POST(req: NextRequest) {
+    console.log(`INFO: [WEBHOOK_INIT] PUBLIC_URL value is: "${process.env.PUBLIC_URL}"`);
     if (!bot) {
         console.error("WEBHOOK_ERROR: Bot not initialized. TELEGRAM_BOT_TOKEN is likely missing.");
         return NextResponse.json({ error: 'Telegram bot not configured.' }, { status: 500 });
@@ -204,9 +237,9 @@ export async function POST(req: NextRequest) {
         const isModificationReply = isReplyToBot && replyText.includes('To make changes, simply reply');
         
         if (isModificationReply) {
-            await handleModificationRequest(chatId, text, replyText, message.message_id);
+            await handleModificationRequest(chatId, text, message.reply_to_message, message.message_id);
             return NextResponse.json({ status: 'ok' });
-        }
+_        }
         
         // If not a command or reply, assume it's a new document request
         await handleNewDocumentRequest(chatId, text, message.message_id);
