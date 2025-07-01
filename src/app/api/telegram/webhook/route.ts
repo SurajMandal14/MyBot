@@ -1,4 +1,3 @@
-
 // src/app/api/telegram/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import TelegramBot from 'node-telegram-bot-api';
@@ -11,30 +10,13 @@ if (!token) {
     console.warn("TELEGRAM_BOT_TOKEN is not set. The Telegram bot will not work.");
 }
 
-// Initialize the bot, but handle the case where the token is missing.
-// We'll check for `bot` being null before using it.
 const bot = token ? new TelegramBot(token, { polling: false }) : null;
 
-// This function safely escapes text for Telegram's MarkdownV2 format.
-function escapeTelegramMarkdown(text: string): string {
-    if (!text) return '';
-    // Characters to escape for MarkdownV2
-    const charsToEscape = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
-    let escapedText = text;
-    for (const char of charsToEscape) {
-        escapedText = escapedText.replace(new RegExp('\\' + char, 'g'), '\\' + char);
-    }
-    return escapedText;
-}
-
-
-async function generateInvoiceReply(invoiceData: any) {
+async function generateInvoiceReply(invoiceData: any, publicUrl: string) {
     try {
-        const publicUrl = process.env.PUBLIC_URL;
-        console.log(`INFO: [generateInvoiceReply] Checking PUBLIC_URL. Value is: "${publicUrl}"`);
-        if (!publicUrl || !publicUrl.trim()) {
-            console.error(`FATAL: PUBLIC_URL environment variable is not set or is empty. Value was: "${publicUrl}". The bot cannot generate PDF links.`);
-            const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable.";
+        if (!publicUrl) {
+            console.error(`FATAL: publicUrl was not provided to generateInvoiceReply. The bot cannot generate PDF links.`);
+            const responseText = "🔴 Configuration Error: The bot's public URL could not be determined on the server. PDF link generation is disabled.";
             return { responseText, replyOptions: {} };
         }
 
@@ -63,13 +45,11 @@ async function generateInvoiceReply(invoiceData: any) {
     }
 }
 
-async function generateQuotationReply(quotationData: any) {
+async function generateQuotationReply(quotationData: any, publicUrl: string) {
     try {
-        const publicUrl = process.env.PUBLIC_URL;
-        console.log(`INFO: [generateQuotationReply] Checking PUBLIC_URL. Value is: "${publicUrl}"`);
-        if (!publicUrl || !publicUrl.trim()) {
-            console.error(`FATAL: PUBLIC_URL environment variable is not set or is empty. Value was: "${publicUrl}". The bot cannot generate PDF links.`);
-            const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable.";
+        if (!publicUrl) {
+            console.error(`FATAL: publicUrl was not provided to generateQuotationReply. The bot cannot generate PDF links.`);
+            const responseText = "🔴 Configuration Error: The bot's public URL could not be determined on the server. PDF link generation is disabled.";
             return { responseText, replyOptions: {} };
         }
         
@@ -100,7 +80,7 @@ async function generateQuotationReply(quotationData: any) {
 
 
 // This function handles the main parsing logic for both invoices and quotations
-async function handleNewDocumentRequest(chatId: number, text: string, messageId: number) {
+async function handleNewDocumentRequest(chatId: number, text: string, messageId: number, publicUrl: string) {
     if (!bot) return; // Exit if bot is not initialized
     const isQuotation = text.toLowerCase().includes('quote') || text.toLowerCase().includes('quotation');
     const docType = isQuotation ? 'Quotation' : 'Invoice';
@@ -124,10 +104,8 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
 
         const data = result.data;
         const replyGenerator = isQuotation ? generateQuotationReply : generateInvoiceReply;
-        // Generate the base reply with the button first, even if data is partial.
-        const { responseText, replyOptions } = await replyGenerator(data);
+        const { responseText, replyOptions } = await replyGenerator(data, publicUrl);
         
-        // Now, check for missing fields to append a warning if necessary.
         const missingFields = [];
         if (!data.customerName?.trim()) missingFields.push('Customer Name');
         if (!data.vehicleNumber?.trim()) missingFields.push('Vehicle Number');
@@ -136,16 +114,13 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
 
         let finalResponseText = responseText;
 
-        // Only add the missing fields warning if the link was successfully generated
         if (Object.keys(replyOptions).length > 0 && missingFields.length > 0) {
             const missingFieldsText = missingFields.join(', ');
-            // Append the warning about missing fields to the standard reply.
             const followUpText = `\n\nHowever, I'm still missing some essential details: ${missingFieldsText}.`;
             finalResponseText += followUpText;
         }
 
         console.log(`INFO: [chatId: ${chatId}] Sending final reply.`);
-        // Send the final message, which will have the button and may have the warning.
         await bot.editMessageText(finalResponseText, { 
             chat_id: chatId, 
             message_id: parsingMessage.message_id, 
@@ -154,14 +129,12 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
 
     } catch (error: any) {
         console.error(`FATAL: [chatId: ${chatId}] Unhandled error during new document request.`, error);
-        const telegramError = (error as any).response?.body ? JSON.stringify((error as any).response.body) : 'No details';
-        console.error('Telegram API Error Body:', telegramError);
         await bot.editMessageText(`A critical error occurred while parsing your notes. Please try again.`, { chat_id: chatId, message_id: parsingMessage.message_id });
     }
 }
 
 
-async function handleModificationRequest(chatId: number, modificationRequest: string, originalMessage: TelegramBot.Message, messageId: number) {
+async function handleModificationRequest(chatId: number, modificationRequest: string, originalMessage: TelegramBot.Message, messageId: number, publicUrl: string) {
      if (!bot) return; // Exit if bot is not initialized
      const processingMessage = await bot.sendMessage(chatId, 'Applying your changes, please wait...');
      try {
@@ -203,7 +176,7 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
              const isInvoice = 'invoiceNumber' in modifiedData;
              const replyGenerator = isInvoice ? generateInvoiceReply : generateQuotationReply;
              
-             const { responseText, replyOptions } = await replyGenerator(modifiedData);
+             const { responseText, replyOptions } = await replyGenerator(modifiedData, publicUrl);
              await bot.editMessageText(responseText, { chat_id: chatId, message_id: processingMessage.message_id, ...replyOptions });
          } else {
              console.error(`ERROR: [chatId: ${chatId}] Modification failed:`, result.message);
@@ -211,19 +184,28 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
          }
      } catch (error: any) {
          console.error(`FATAL: [chatId: ${chatId}] Unhandled error during modification request.`, error);
-         const telegramError = (error as any).response?.body ? JSON.stringify((error as any).response.body) : 'No details';
-        console.error('Telegram API Error Body:', telegramError);
         await bot.editMessageText(`A critical error occurred while modifying the document. Please try again.`, { chat_id: chatId, message_id: processingMessage.message_id });
      }
 }
 
 export async function POST(req: NextRequest) {
-    console.log(`INFO: [WEBHOOK_INIT] PUBLIC_URL value is: "${process.env.PUBLIC_URL}"`);
     if (!bot) {
         console.error("WEBHOOK_ERROR: Bot not initialized. TELEGRAM_BOT_TOKEN is likely missing.");
         return NextResponse.json({ error: 'Telegram bot not configured.' }, { status: 500 });
     }
     
+    // Dynamically construct the public URL from request headers
+    const host = req.headers.get('host');
+    const proto = req.headers.get('x-forwarded-proto') || 'https';
+    const publicUrl = `${proto}://${host}`;
+    console.log(`INFO: [WEBHOOK] Dynamically constructed public URL: ${publicUrl}`);
+
+    if (!host) {
+        console.error("WEBHOOK_ERROR: Could not determine host from request headers.");
+        // We can't send a message back without a chat ID, so we just log and exit.
+        return NextResponse.json({ error: 'Could not determine host' }, { status: 500 });
+    }
+
     try {
         const body = await req.json();
         const message = body.message;
@@ -236,7 +218,6 @@ export async function POST(req: NextRequest) {
         const text = message.text as string;
         console.log(`INFO: [chatId: ${chatId}] Webhook received message: "${text}"`);
 
-        // Handle API Key check early
         const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
         if (!geminiKey?.trim()) {
             console.error("WEBHOOK_ERROR: Gemini API key is missing on the server.");
@@ -244,7 +225,6 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Gemini API key not configured.' }, { status: 500 });
         }
 
-        // Handle specific commands first
         if (text === '/start') {
             await bot.sendMessage(chatId, 'Welcome to Flywheels bot, select your action', {
                 reply_markup: {
@@ -266,26 +246,20 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ status: 'ok' });
         }
         
-        // Handle document modifications (replying to a bot message)
         const isReplyToBot = message.reply_to_message && message.reply_to_message.from.is_bot;
 
         if (isReplyToBot) {
-            await handleModificationRequest(chatId, text, message.reply_to_message, message.message_id);
+            await handleModificationRequest(chatId, text, message.reply_to_message, message.message_id, publicUrl);
             return NextResponse.json({ status: 'ok' });
         }
         
-        // If not a command or reply, assume it's a new document request
-        await handleNewDocumentRequest(chatId, text, message.message_id);
+        await handleNewDocumentRequest(chatId, text, message.message_id, publicUrl);
         
         console.log(`INFO: [chatId: ${chatId}] Finished processing request.`);
         return NextResponse.json({ status: 'ok' });
 
     } catch (error: any) {
         console.error(`FATAL: Unhandled error in webhook top-level processing.`, error);
-        const telegramError = (error as any).response?.body ? JSON.stringify((error as any).response.body) : 'No details';
-        console.error('Telegram API Error Body:', telegramError);
-        // We might not have a chatId here if the request body is malformed.
-        // We can't reliably send a message back.
         return NextResponse.json({ error: 'Failed to process update' }, { status: 500 });
     }
 }

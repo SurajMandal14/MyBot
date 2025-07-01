@@ -13,6 +13,15 @@ function isApiKeyMissing() {
     return !geminiKey?.trim() && !googleKey?.trim();
 }
 
+function hasMeaningfulData(parsedData: ParseServiceDetailsOutput): boolean {
+    const isFiller = (val: string | undefined | null) => !val || val.trim().toLowerCase() === 'n/a' || val.trim().toLowerCase() === 'not available';
+
+    const hasCustomerData = !isFiller(parsedData.customerName) || !isFiller(parsedData.vehicleNumber) || !isFiller(parsedData.carModel);
+    const hasItemData = parsedData.items && parsedData.items.length > 0;
+
+    return hasCustomerData || hasItemData;
+}
+
 export async function parseInvoiceAction(input: ParseServiceDetailsInput): Promise<{
     success: boolean;
     data: (ParseServiceDetailsOutput & { invoiceNumber: string }) | null;
@@ -26,9 +35,7 @@ export async function parseInvoiceAction(input: ParseServiceDetailsInput): Promi
     try {
         const parsedData = await parseServiceDetails(input);
         
-        // Check if the AI returned any meaningful data.
-        const hasData = parsedData.customerName?.trim() || parsedData.vehicleNumber?.trim() || parsedData.carModel?.trim() || (parsedData.items && parsedData.items.length > 0);
-        if (!hasData) {
+        if (!hasMeaningfulData(parsedData)) {
             return { success: false, data: null, error: "The provided text doesn't seem to contain any invoice details. Please provide more specific information." };
         }
 
@@ -76,9 +83,7 @@ export async function parseQuotationAction(input: ParseQuotationDetailsInput): P
     try {
         const parsedData = await parseQuotationDetails(input);
         
-         // Check if the AI returned any meaningful data.
-        const hasData = parsedData.customerName?.trim() || parsedData.vehicleNumber?.trim() || parsedData.carModel?.trim() || (parsedData.items && parsedData.items.length > 0);
-        if (!hasData) {
+        if (!hasMeaningfulData(parsedData)) {
             return { success: false, data: null, error: "The provided text doesn't seem to contain any quotation details. Please provide more specific information." };
         }
 
