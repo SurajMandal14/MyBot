@@ -69,7 +69,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
                     </div>
                 </div>
                 <div className="w-32 h-20 relative">
-                    <img src="https://i.ibb.co/VvzrW0p/showcase-flywheels-logo-red.png" alt="Flywheels Logo" className="w-full h-full object-contain" data-ai-hint="car logo" />
+                    <img src="https://i.ibb.co/VvzrW0p/showcase-flywheels-logo-red.png" alt="Flywheels Logo" className="w-full h-full object-contain" data-ai-hint="car logo" referrerPolicy="no-referrer" />
                 </div>
             </header>
 
