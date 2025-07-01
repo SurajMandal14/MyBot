@@ -52,45 +52,45 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
     <div id="invoice-print-area" className="relative bg-white text-black p-8 font-body text-[10px] w-full h-full overflow-auto">
         {/* Watermark */}
         <div 
-            className="absolute top-1/3 left-4 font-bold z-0 tracking-[0.2em]"
+            className="absolute top-1/4 left-4 font-bold text-5xl z-0 tracking-[0.2em]"
             style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
         >
-            <span className="text-5xl text-primary">[{formattedInvoiceNumber}]</span>
-            <span className="text-5xl text-gray-800">Invoice</span>
+            <span className="text-gray-800">Invoice </span>
+            <span className="text-primary">[{formattedInvoiceNumber}]</span>
         </div>
         
         <div className="relative z-10 flex flex-col h-full ml-[60px]">
-            <header className="flex justify-between items-start">
+            <header className="flex justify-between items-start -mt-8">
                 <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <span className="text-primary">FLYWHEELS</span>
-                        <span className="text-foreground font-light text-lg">THE AUTO EXPERTS</span>
+                    <h1 className="text-3xl font-bold text-primary">
+                        FLYWHEELS AUTO
                     </h1>
-                    <div className="text-gray-500 mt-2 text-xs leading-snug">
+                    <div className="text-gray-600 mt-2 text-xs leading-snug">
                         <p>Ayush hospital road, beside Saibaba temple</p>
                         <p>Nagarjuna Nagar, Currency Nagar</p>
                         <p>Vijayawada, Andhra Pradesh -520008</p>
+                        <p className="font-bold mt-1 text-black">GST IN: 37AAJFF3362M1Z1</p>
                     </div>
                 </div>
-                <div className="w-64 h-32 relative -mt-10">
+                <div className="w-48 h-24 relative">
                     <Image src="https://lh3.googleusercontent.com/p/AF1QipMM0m7qWmmlOkZMr-jto2vdsuC-xbzn8DYaTQIF=s1360-w1360-h1020-rw" alt="Flywheels Logo" fill style={{objectFit: 'contain'}} data-ai-hint="car logo" unoptimized />
                 </div>
             </header>
 
-            <div className="w-full h-px bg-primary/50 my-4"></div>
+            <div className="w-full h-px bg-primary my-4"></div>
             
             <section className="grid grid-cols-3 gap-4 text-xs mb-4">
                 <div>
                     <p className="font-bold text-primary">Date</p>
-                    <p>{currentDate}</p>
+                    <p className="text-gray-800">{currentDate}</p>
                 </div>
                 <div>
                     <p className="font-bold text-primary">To</p>
-                    <p>{invoiceData.customerName || 'N/A'}</p>
+                    <p className="text-gray-800 font-medium">{invoiceData.customerName || 'N/A'}</p>
                 </div>
                 <div>
                     <p className="font-bold text-primary">Ship To</p>
-                    <p>In-Store</p>
+                    <p className="text-gray-800">In-Store</p>
                 </div>
             </section>
             
@@ -98,8 +98,8 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
 
             <section className="text-xs mb-4">
                 <p className="font-bold text-primary mb-1">Vehicle Details</p>
-                <p>{invoiceData.carModel || 'N/A'}</p>
-                <p>{invoiceData.vehicleNumber || 'N/A'}</p>
+                <p className="text-gray-800">{invoiceData.carModel || 'N/A'}</p>
+                <p className="text-gray-800">{invoiceData.vehicleNumber || 'N/A'}</p>
             </section>
 
             <main className="flex-grow">
@@ -131,8 +131,8 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
                 <div className="flex flex-col items-end">
                     <div className="w-full border-t-2 border-primary mb-2"></div>
                     <div className="flex justify-between items-center w-[250px]">
-                        <span className="font-bold text-base text-foreground">GRAND TOTAL</span>
-                        <span className="font-bold text-base text-foreground">{formatCurrency(grandTotal)}</span>
+                        <span className="font-bold text-base text-gray-800">GRAND TOTAL</span>
+                        <span className="font-bold text-base text-gray-800">{formatCurrency(grandTotal)}</span>
                     </div>
                 </div>
                 
