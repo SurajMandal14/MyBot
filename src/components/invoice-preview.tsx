@@ -72,7 +72,7 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
                     </div>
                 </div>
                 <div className="w-32 h-20 relative">
-                    <Image src="https://i.postimg.cc/Nf4Lg2B2/showcase-flywheels-logo-red.png" alt="Flywheels Logo" fill style={{objectFit: 'contain'}} data-ai-hint="car logo" unoptimized />
+                    <Image src="https://i.ibb.co/0FDhBq1/showcase-flywheels-logo-red.png" alt="Flywheels Logo" fill style={{objectFit: 'contain'}} data-ai-hint="car logo" unoptimized />
                 </div>
             </header>
 
