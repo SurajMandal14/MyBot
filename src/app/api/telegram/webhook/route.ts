@@ -11,13 +11,29 @@ if (!token) {
     console.warn("TELEGRAM_BOT_TOKEN is not set. The Telegram bot will not work.");
 }
 
+// Initialize the bot, but handle the case where the token is missing.
+// We'll check for `bot` being null before using it.
 const bot = token ? new TelegramBot(token, { polling: false }) : null;
+
+// This function safely escapes text for Telegram's MarkdownV2 format.
+function escapeTelegramMarkdown(text: string): string {
+    if (!text) return '';
+    // Characters to escape for MarkdownV2
+    const charsToEscape = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
+    let escapedText = text;
+    for (const char of charsToEscape) {
+        escapedText = escapedText.replace(new RegExp('\\' + char, 'g'), '\\' + char);
+    }
+    return escapedText;
+}
+
 
 async function generateInvoiceReply(invoiceData: any) {
     try {
         const publicUrl = process.env.PUBLIC_URL;
+        console.log(`INFO: [generateInvoiceReply] Checking PUBLIC_URL. Value is: "${publicUrl}"`);
         if (!publicUrl || !publicUrl.trim()) {
-            console.error(`FATAL: PUBLIC_URL environment variable is not set or is empty. The bot cannot generate PDF links.`);
+            console.error(`FATAL: PUBLIC_URL environment variable is not set or is empty. Value was: "${publicUrl}". The bot cannot generate PDF links.`);
             const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable.";
             return { responseText, replyOptions: {} };
         }
@@ -50,8 +66,9 @@ async function generateInvoiceReply(invoiceData: any) {
 async function generateQuotationReply(quotationData: any) {
     try {
         const publicUrl = process.env.PUBLIC_URL;
+        console.log(`INFO: [generateQuotationReply] Checking PUBLIC_URL. Value is: "${publicUrl}"`);
         if (!publicUrl || !publicUrl.trim()) {
-            console.error(`FATAL: PUBLIC_URL environment variable is not set or is empty. The bot cannot generate PDF links.`);
+            console.error(`FATAL: PUBLIC_URL environment variable is not set or is empty. Value was: "${publicUrl}". The bot cannot generate PDF links.`);
             const responseText = "🔴 Configuration Error: The bot's `PUBLIC_URL` is not set on the server. PDF link generation is disabled. Please contact the administrator to set this environment variable.";
             return { responseText, replyOptions: {} };
         }
@@ -84,10 +101,11 @@ async function generateQuotationReply(quotationData: any) {
 
 // This function handles the main parsing logic for both invoices and quotations
 async function handleNewDocumentRequest(chatId: number, text: string, messageId: number) {
+    if (!bot) return; // Exit if bot is not initialized
     const isQuotation = text.toLowerCase().includes('quote') || text.toLowerCase().includes('quotation');
     const docType = isQuotation ? 'Quotation' : 'Invoice';
     
-    const parsingMessage = await bot!.sendMessage(chatId, `Parsing your text as a ${docType}, please wait...`);
+    const parsingMessage = await bot.sendMessage(chatId, `Parsing your text as a ${docType}, please wait...`);
 
     try {
         console.log(`INFO: [chatId: ${chatId}] Starting to parse ${docType} from text: "${text}"`);
@@ -100,7 +118,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
         if (!result || !result.success || !result.data) {
             const errorMessage = `Sorry, I couldn't parse that as a ${docType}. Error: ${result?.error || 'Unknown AI error'}`;
             console.error(`ERROR: [chatId: ${chatId}] Parsing failed. Reason: ${result?.error}`);
-            await bot!.editMessageText(errorMessage, { chat_id: chatId, message_id: parsingMessage.message_id });
+            await bot.editMessageText(errorMessage, { chat_id: chatId, message_id: parsingMessage.message_id });
             return;
         }
 
@@ -128,7 +146,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
 
         console.log(`INFO: [chatId: ${chatId}] Sending final reply.`);
         // Send the final message, which will have the button and may have the warning.
-        await bot!.editMessageText(finalResponseText, { 
+        await bot.editMessageText(finalResponseText, { 
             chat_id: chatId, 
             message_id: parsingMessage.message_id, 
             ...replyOptions
@@ -136,28 +154,28 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
 
     } catch (error: any) {
         console.error(`FATAL: [chatId: ${chatId}] Unhandled error during new document request.`, error);
-        if (error.response && error.response.body) {
-            console.error('Telegram API Error:', JSON.stringify(error.response.body, null, 2));
-        }
-        await bot!.editMessageText(`A critical error occurred while parsing your notes. Please try again.`, { chat_id: chatId, message_id: parsingMessage.message_id });
+        const telegramError = (error as any).response?.body ? JSON.stringify((error as any).response.body) : 'No details';
+        console.error('Telegram API Error Body:', telegramError);
+        await bot.editMessageText(`A critical error occurred while parsing your notes. Please try again.`, { chat_id: chatId, message_id: parsingMessage.message_id });
     }
 }
 
 
 async function handleModificationRequest(chatId: number, modificationRequest: string, originalMessage: TelegramBot.Message, messageId: number) {
-     const processingMessage = await bot!.sendMessage(chatId, 'Applying your changes, please wait...');
+     if (!bot) return; // Exit if bot is not initialized
+     const processingMessage = await bot.sendMessage(chatId, 'Applying your changes, please wait...');
      try {
          console.log(`INFO: [chatId: ${chatId}] Starting modification request on message ID ${originalMessage.message_id}.`);
          
          const inlineKeyboard = originalMessage.reply_markup?.inline_keyboard;
          if (!inlineKeyboard || !inlineKeyboard[0] || !inlineKeyboard[0][0]) {
-             await bot!.editMessageText("Sorry, I couldn't find the original document data to modify. Please start a new request.", { chat_id: chatId, message_id: processingMessage.message_id });
+             await bot.editMessageText("Sorry, I couldn't find the original document data to modify. Please start a new request.", { chat_id: chatId, message_id: processingMessage.message_id });
              return;
          }
 
          const button = inlineKeyboard[0][0];
          if (!('url' in button)) {
-             await bot!.editMessageText("Sorry, the original message does not contain a valid document link to modify.", { chat_id: chatId, message_id: processingMessage.message_id });
+             await bot.editMessageText("Sorry, the original message does not contain a valid document link to modify.", { chat_id: chatId, message_id: processingMessage.message_id });
              return;
          }
 
@@ -165,7 +183,7 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
          const base64Data = docUrl.searchParams.get('data');
 
          if (!base64Data) {
-            await bot!.editMessageText("Sorry, I couldn't extract the data from the document link.", { chat_id: chatId, message_id: processingMessage.message_id });
+            await bot.editMessageText("Sorry, I couldn't extract the data from the document link.", { chat_id: chatId, message_id: processingMessage.message_id });
             return;
          }
 
@@ -186,17 +204,16 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
              const replyGenerator = isInvoice ? generateInvoiceReply : generateQuotationReply;
              
              const { responseText, replyOptions } = await replyGenerator(modifiedData);
-             await bot!.editMessageText(responseText, { chat_id: chatId, message_id: processingMessage.message_id, ...replyOptions });
+             await bot.editMessageText(responseText, { chat_id: chatId, message_id: processingMessage.message_id, ...replyOptions });
          } else {
              console.error(`ERROR: [chatId: ${chatId}] Modification failed:`, result.message);
-             await bot!.editMessageText(`Sorry, I couldn't apply that change. Error: ${result.message}`, { chat_id: chatId, message_id: processingMessage.message_id });
+             await bot.editMessageText(`Sorry, I couldn't apply that change. Error: ${result.message}`, { chat_id: chatId, message_id: processingMessage.message_id });
          }
      } catch (error: any) {
          console.error(`FATAL: [chatId: ${chatId}] Unhandled error during modification request.`, error);
-         if (error.response && error.response.body) {
-            console.error('Telegram API Error:', JSON.stringify(error.response.body, null, 2));
-         }
-        await bot!.editMessageText(`A critical error occurred while modifying the document. Please try again.`, { chat_id: chatId, message_id: processingMessage.message_id });
+         const telegramError = (error as any).response?.body ? JSON.stringify((error as any).response.body) : 'No details';
+        console.error('Telegram API Error Body:', telegramError);
+        await bot.editMessageText(`A critical error occurred while modifying the document. Please try again.`, { chat_id: chatId, message_id: processingMessage.message_id });
      }
 }
 
@@ -265,9 +282,8 @@ export async function POST(req: NextRequest) {
 
     } catch (error: any) {
         console.error(`FATAL: Unhandled error in webhook top-level processing.`, error);
-        if (error.response && error.response.body) {
-            console.error('Telegram API Error:', JSON.stringify(error.response.body, null, 2));
-        }
+        const telegramError = (error as any).response?.body ? JSON.stringify((error as any).response.body) : 'No details';
+        console.error('Telegram API Error Body:', telegramError);
         // We might not have a chatId here if the request body is malformed.
         // We can't reliably send a message back.
         return NextResponse.json({ error: 'Failed to process update' }, { status: 500 });
