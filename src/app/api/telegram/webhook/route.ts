@@ -118,7 +118,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
             console.log(`INFO: [chatId: ${chatId}] Document is partial. Missing: ${missingFields.join(', ')}. Asking for info.`);
             
             const docTypeForUrl = isQuotation ? 'quotation' : 'invoice';
-            let responseText = `I've parsed the items, but I'm missing some details: *${missingFields.join(', ')}*.\n\n*Please reply to this message with the missing information.*`;
+            let responseText = `I've parsed the items, but I'm missing some details: *${missingFields.join(', ')}*.\n\n*Please reply to this message with the missing information (e.g., 'Customer is John, car is a Toyota').*`;
             
             const jsonData = JSON.stringify(data);
             const compressedData = pako.deflate(jsonData, { level: 9 });
@@ -192,8 +192,9 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
             await bot.editMessageText("Sorry, I couldn't extract the data from the document link.", { chat_id: chatId, message_id: processingMessage.message_id });
             return;
          }
-
-         const compressedData = Buffer.from(base64Data, 'base64url');
+         
+         const base64 = base64Data.replace(/-/g, '+').replace(/_/g, '/');
+         const compressedData = Buffer.from(base64, 'base64');
          const documentDetails = pako.inflate(compressedData, { to: 'string' });
          console.log(`INFO: [chatId: ${chatId}] Extracted and decompressed document details for modification.`);
          

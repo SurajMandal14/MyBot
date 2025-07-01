@@ -71,7 +71,7 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
                         <p>Vijayawada, Andhra Pradesh -520008</p>
                     </div>
                 </div>
-                <div className="w-64 h-40 relative">
+                <div className="w-64 h-32 relative -mt-4">
                     <Image src="https://lh3.googleusercontent.com/p/AF1QipMM0m7qWmmlOkZMr-jto2vdsuC-xbzn8DYaTQIF=s1360-w1360-h1020-rw" alt="Flywheels Logo" fill style={{objectFit: 'contain'}} data-ai-hint="car logo" unoptimized />
                 </div>
             </header>
