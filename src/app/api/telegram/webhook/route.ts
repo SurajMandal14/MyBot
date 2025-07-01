@@ -103,29 +103,60 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
         }
 
         const data = result.data;
-        const replyGenerator = isQuotation ? generateQuotationReply : generateInvoiceReply;
-        const { responseText, replyOptions } = await replyGenerator(data, publicUrl);
         
         const missingFields = [];
         if (!data.customerName?.trim()) missingFields.push('Customer Name');
         if (!data.vehicleNumber?.trim()) missingFields.push('Vehicle Number');
         if (!data.carModel?.trim()) missingFields.push('Car Model');
-        if (!data.items || data.items.length === 0) missingFields.push('Line Items');
+        
+        const hasItems = data.items && data.items.length > 0;
 
-        let finalResponseText = responseText;
+        if (missingFields.length > 0 && hasItems) {
+            // NEW LOGIC: Document is partial. Ask for more information before generating the final link.
+            console.log(`INFO: [chatId: ${chatId}] Document is partial. Missing: ${missingFields.join(', ')}. Asking for info.`);
+            
+            const docTypeForUrl = isQuotation ? 'quotation' : 'invoice';
+            let responseText = `I've parsed the items, but I'm missing some details: **${missingFields.join(', ')}**.\n\nPlease reply to this message with the missing information.`;
+            
+            const jsonData = JSON.stringify(data);
+            const compressedData = pako.deflate(jsonData);
+            const base64Data = Buffer.from(compressedData).toString('base64');
+            const contextUrl = `${publicUrl.replace(/\/$/, '')}/view-${docTypeForUrl}?data=${base64Data}`;
 
-        if (Object.keys(replyOptions).length > 0 && missingFields.length > 0) {
-            const missingFieldsText = missingFields.join(', ');
-            const followUpText = `\n\nHowever, I'm still missing some essential details: ${missingFieldsText}.`;
-            finalResponseText += followUpText;
+            const replyOptions: TelegramBot.SendMessageOptions = {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [
+                        // This button is essential for passing state, but is worded to guide the user to reply.
+                        [{ text: '📝 Context (Reply to this message to add info)', url: contextUrl }]
+                    ]
+                }
+            };
+
+            await bot.editMessageText(responseText, { 
+                chat_id: chatId, 
+                message_id: parsingMessage.message_id, 
+                ...replyOptions
+            });
+
+        } else {
+            // EXISTING LOGIC: Document is complete, generate the final link.
+            console.log(`INFO: [chatId: ${chatId}] Document is complete. Generating final reply.`);
+            const replyGenerator = isQuotation ? generateQuotationReply : generateInvoiceReply;
+            const { responseText, replyOptions } = await replyGenerator(data, publicUrl);
+            
+            // This is a safety check in case parsing was successful but yielded an empty document link.
+            if (Object.keys(replyOptions).length === 0) {
+                 await bot.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id });
+                 return;
+            }
+
+            await bot.editMessageText(responseText, { 
+                chat_id: chatId, 
+                message_id: parsingMessage.message_id, 
+                ...replyOptions
+            });
         }
-
-        console.log(`INFO: [chatId: ${chatId}] Sending final reply.`);
-        await bot.editMessageText(finalResponseText, { 
-            chat_id: chatId, 
-            message_id: parsingMessage.message_id, 
-            ...replyOptions
-        });
 
     } catch (error: any) {
         console.error(`FATAL: [chatId: ${chatId}] Unhandled error during new document request.`, error);
@@ -197,14 +228,15 @@ export async function POST(req: NextRequest) {
     // Dynamically construct the public URL from request headers
     const host = req.headers.get('host');
     const proto = req.headers.get('x-forwarded-proto') || 'https';
-    const publicUrl = `${proto}://${host}`;
-    console.log(`INFO: [WEBHOOK] Dynamically constructed public URL: ${publicUrl}`);
-
+    
     if (!host) {
-        console.error("WEBHOOK_ERROR: Could not determine host from request headers.");
+        console.error("WEBHOOK_ERROR: Could not determine host from request headers. This is required for link generation.");
         // We can't send a message back without a chat ID, so we just log and exit.
         return NextResponse.json({ error: 'Could not determine host' }, { status: 500 });
     }
+    
+    const publicUrl = `${proto}://${host}`;
+    console.log(`INFO: [WEBHOOK] Dynamically constructed public URL: ${publicUrl}`);
 
     try {
         const body = await req.json();
@@ -259,6 +291,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'ok' });
 
     } catch (error: any) {
+        // Use a try-catch for the final error message to avoid silent failures.
+        try {
+            const bodyForError = await req.json();
+            const chatIdForError = bodyForError?.message?.chat?.id;
+            if (chatIdForError && bot) {
+                await bot.sendMessage(chatIdForError, 'A critical error occurred on the server. Please check the logs.');
+            }
+        } catch (e) {
+             console.error(`FATAL: Unhandled error in webhook top-level processing AND could not notify user.`, e);
+        }
         console.error(`FATAL: Unhandled error in webhook top-level processing.`, error);
         return NextResponse.json({ error: 'Failed to process update' }, { status: 500 });
     }
