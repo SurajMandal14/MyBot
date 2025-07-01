@@ -26,6 +26,12 @@ export async function parseInvoiceAction(input: ParseServiceDetailsInput): Promi
     try {
         const parsedData = await parseServiceDetails(input);
         
+        // Check if the AI returned any meaningful data.
+        const hasData = parsedData.customerName?.trim() || parsedData.vehicleNumber?.trim() || parsedData.carModel?.trim() || (parsedData.items && parsedData.items.length > 0);
+        if (!hasData) {
+            return { success: false, data: null, error: "The provided text doesn't seem to contain any invoice details. Please provide more specific information." };
+        }
+
         // Ensure numbers are formatted correctly and handle cases where items might be missing
         const validatedItems = (parsedData.items || []).map(item => ({
             ...item,
@@ -70,6 +76,12 @@ export async function parseQuotationAction(input: ParseQuotationDetailsInput): P
     try {
         const parsedData = await parseQuotationDetails(input);
         
+         // Check if the AI returned any meaningful data.
+        const hasData = parsedData.customerName?.trim() || parsedData.vehicleNumber?.trim() || parsedData.carModel?.trim() || (parsedData.items && parsedData.items.length > 0);
+        if (!hasData) {
+            return { success: false, data: null, error: "The provided text doesn't seem to contain any quotation details. Please provide more specific information." };
+        }
+
         const validatedItems = (parsedData.items || []).map(item => ({
             ...item,
             quantity: Number(item.quantity) || 0,
