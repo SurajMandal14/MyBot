@@ -13,13 +13,6 @@ if (!token) {
 
 const bot = token ? new TelegramBot(token, { polling: false }) : null;
 
-// This function sanitizes text for Telegram's MarkdownV2 parser
-function escapeTelegramMarkdown(text: string): string {
-    if (!text) return '';
-    const escapeChars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
-    return text.split('').map(char => escapeChars.includes(char) ? '\\' + char : char).join('');
-}
-
 async function generateInvoiceReply(invoiceData: any) {
     try {
         const publicUrl = process.env.PUBLIC_URL;
@@ -129,7 +122,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
         if (Object.keys(replyOptions).length > 0 && missingFields.length > 0) {
             const missingFieldsText = missingFields.join(', ');
             // Append the warning about missing fields to the standard reply.
-            const followUpText = `\n\nHowever, I'm still missing some essential details: *${escapeTelegramMarkdown(missingFieldsText)}*\\.`;
+            const followUpText = `\n\nHowever, I'm still missing some essential details: ${missingFieldsText}.`;
             finalResponseText += followUpText;
         }
 
@@ -138,16 +131,14 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
         await bot!.editMessageText(finalResponseText, { 
             chat_id: chatId, 
             message_id: parsingMessage.message_id, 
-            ...replyOptions,
-            parse_mode: 'MarkdownV2' 
+            ...replyOptions
         });
 
     } catch (error: any) {
-        console.error(`FATAL: [chatId: ${chatId}] Unhandled error during new document request.`);
-        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-        const errorStack = error instanceof Error ? error.stack : 'No stack available';
-        console.error(`--> Error Message: ${errorMessage}`);
-        console.error(`--> Error Stack: ${errorStack}`);
+        console.error(`FATAL: [chatId: ${chatId}] Unhandled error during new document request.`, error);
+        if (error.response && error.response.body) {
+            console.error('Telegram API Error:', JSON.stringify(error.response.body, null, 2));
+        }
         await bot!.editMessageText(`A critical error occurred while parsing your notes. Please try again.`, { chat_id: chatId, message_id: parsingMessage.message_id });
     }
 }
@@ -195,17 +186,16 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
              const replyGenerator = isInvoice ? generateInvoiceReply : generateQuotationReply;
              
              const { responseText, replyOptions } = await replyGenerator(modifiedData);
-             await bot!.editMessageText(responseText, { chat_id: chatId, message_id: processingMessage.message_id, ...replyOptions, parse_mode: 'MarkdownV2' });
+             await bot!.editMessageText(responseText, { chat_id: chatId, message_id: processingMessage.message_id, ...replyOptions });
          } else {
              console.error(`ERROR: [chatId: ${chatId}] Modification failed:`, result.message);
              await bot!.editMessageText(`Sorry, I couldn't apply that change. Error: ${result.message}`, { chat_id: chatId, message_id: processingMessage.message_id });
          }
      } catch (error: any) {
-         console.error(`FATAL: [chatId: ${chatId}] Unhandled error during modification request.`);
-         const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-         const errorStack = error instanceof Error ? error.stack : 'No stack available';
-        console.error(`--> Error Message: ${errorMessage}`);
-        console.error(`--> Error Stack: ${errorStack}`);
+         console.error(`FATAL: [chatId: ${chatId}] Unhandled error during modification request.`, error);
+         if (error.response && error.response.body) {
+            console.error('Telegram API Error:', JSON.stringify(error.response.body, null, 2));
+         }
         await bot!.editMessageText(`A critical error occurred while modifying the document. Please try again.`, { chat_id: chatId, message_id: processingMessage.message_id });
      }
 }
@@ -274,11 +264,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'ok' });
 
     } catch (error: any) {
-        console.error(`FATAL: Unhandled error in webhook top-level processing.`);
-        const errorMessage = error instanceof Error ? `${error.message} (Name: ${error.name})` : JSON.stringify(error);
-        const errorStack = error instanceof Error ? error.stack : 'No stack available';
-        console.error(`--> Error Message: ${errorMessage}`);
-        console.error(`--> Error Stack: ${errorStack}`);
+        console.error(`FATAL: Unhandled error in webhook top-level processing.`, error);
+        if (error.response && error.response.body) {
+            console.error('Telegram API Error:', JSON.stringify(error.response.body, null, 2));
+        }
         // We might not have a chatId here if the request body is malformed.
         // We can't reliably send a message back.
         return NextResponse.json({ error: 'Failed to process update' }, { status: 500 });
