@@ -28,6 +28,7 @@ async function generateInvoiceReply(invoiceData: any, publicUrl: string) {
         const invoiceUrl = `${publicUrl.replace(/\/$/, '')}/view-invoice?data=${base64Data}`;
 
         const replyOptions: TelegramBot.SendMessageOptions = {
+            parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [
                     [{ text: '📄 View and Print Invoice', url: invoiceUrl }]
@@ -35,7 +36,7 @@ async function generateInvoiceReply(invoiceData: any, publicUrl: string) {
             }
         };
         
-        responseText += `\n\n(To make changes, simply reply to this message with your request, e.g., "remove engine oil")`;
+        responseText += `\n\n*To make changes, reply to this message with your request (e.g., "remove engine oil" or "add 2 wiper blades for 500 each").*`;
 
         return { responseText, replyOptions };
     } catch(error: any) {
@@ -61,6 +62,7 @@ async function generateQuotationReply(quotationData: any, publicUrl: string) {
         const quotationUrl = `${publicUrl.replace(/\/$/, '')}/view-quotation?data=${base64Data}`;
 
         const replyOptions: TelegramBot.SendMessageOptions = {
+            parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [
                     [{ text: '📄 View and Print Quotation', url: quotationUrl }]
@@ -68,7 +70,7 @@ async function generateQuotationReply(quotationData: any, publicUrl: string) {
             }
         };
         
-        responseText += `\n\n(To make changes, simply reply to this message with your request, e.g., "add front bumper for 2500")`;
+        responseText += `\n\n*To make changes, reply to this message with your request (e.g., "add front bumper for 2500" or "remove engine oil").*`;
 
         return { responseText, replyOptions };
     } catch(error: any) {
@@ -116,7 +118,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
             console.log(`INFO: [chatId: ${chatId}] Document is partial. Missing: ${missingFields.join(', ')}. Asking for info.`);
             
             const docTypeForUrl = isQuotation ? 'quotation' : 'invoice';
-            let responseText = `I've parsed the items, but I'm missing some details: ${missingFields.join(', ')}.\n\nPlease reply to this message with the missing information.`;
+            let responseText = `I've parsed the items, but I'm missing some details: *${missingFields.join(', ')}*.\n\n*Please reply to this message with the missing information.*`;
             
             const jsonData = JSON.stringify(data);
             const compressedData = pako.deflate(jsonData, { level: 9 });
@@ -124,6 +126,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
             const contextUrl = `${publicUrl.replace(/\/$/, '')}/view-${docTypeForUrl}?data=${base64Data}`;
 
             const replyOptions: TelegramBot.SendMessageOptions = {
+                parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [
                         // This button is essential for passing state, but is worded to guide the user to reply.
