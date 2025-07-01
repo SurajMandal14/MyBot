@@ -23,12 +23,8 @@ async function generateInvoiceReply(invoiceData: any, publicUrl: string) {
         let responseText = `Your invoice has been created successfully.\n\nClick the button below to view, print, or save as a PDF.`;
         
         const jsonData = JSON.stringify(invoiceData);
-        // Using maximum compression level
         const compressedData = pako.deflate(jsonData, { level: 9 });
-        const base64Data = Buffer.from(compressedData).toString('base64')
-            .replace(/\+/g, '-') // Convert to URL-safe base64
-            .replace(/\//g, '_')
-            .replace(/=/g, '');
+        const base64Data = Buffer.from(compressedData).toString('base64url');
         const invoiceUrl = `${publicUrl.replace(/\/$/, '')}/view-invoice?data=${base64Data}`;
 
         const replyOptions: TelegramBot.SendMessageOptions = {
@@ -60,12 +56,8 @@ async function generateQuotationReply(quotationData: any, publicUrl: string) {
         let responseText = `Your quotation has been created successfully.\n\nClick the button below to view, print, or save as a PDF.`;
 
         const jsonData = JSON.stringify(quotationData);
-        // Using maximum compression level
         const compressedData = pako.deflate(jsonData, { level: 9 });
-        const base64Data = Buffer.from(compressedData).toString('base64')
-            .replace(/\+/g, '-') // Convert to URL-safe base64
-            .replace(/\//g, '_')
-            .replace(/=/g, '');
+        const base64Data = Buffer.from(compressedData).toString('base64url');
         const quotationUrl = `${publicUrl.replace(/\/$/, '')}/view-quotation?data=${base64Data}`;
 
         const replyOptions: TelegramBot.SendMessageOptions = {
@@ -127,12 +119,8 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
             let responseText = `I've parsed the items, but I'm missing some details: ${missingFields.join(', ')}.\n\nPlease reply to this message with the missing information.`;
             
             const jsonData = JSON.stringify(data);
-            // Using maximum compression level
             const compressedData = pako.deflate(jsonData, { level: 9 });
-            const base64Data = Buffer.from(compressedData).toString('base64')
-                .replace(/\+/g, '-') // Convert to URL-safe base64
-                .replace(/\//g, '_')
-                .replace(/=/g, '');
+            const base64Data = Buffer.from(compressedData).toString('base64url');
             const contextUrl = `${publicUrl.replace(/\/$/, '')}/view-${docTypeForUrl}?data=${base64Data}`;
 
             const replyOptions: TelegramBot.SendMessageOptions = {
@@ -202,7 +190,7 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
             return;
          }
 
-         const compressedData = Buffer.from(base64Data, 'base64');
+         const compressedData = Buffer.from(base64Data, 'base64url');
          const documentDetails = pako.inflate(compressedData, { to: 'string' });
          console.log(`INFO: [chatId: ${chatId}] Extracted and decompressed document details for modification.`);
          

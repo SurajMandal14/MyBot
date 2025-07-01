@@ -20,21 +20,10 @@ function ViewInvoicePage() {
         const dataParam = searchParams.get('data');
         if (dataParam) {
             try {
-                // URL-safe base64 decode
-                let base64 = dataParam.replace(/-/g, '+').replace(/_/g, '/');
-                // Pad with '=' characters
-                while (base64.length % 4) {
-                    base64 += '=';
-                }
-                const binaryString = atob(base64);
-                // Convert binary string to Uint8Array
-                const len = binaryString.length;
-                const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
-                }
+                // Use Buffer to decode the base64url string directly
+                const compressedData = Buffer.from(dataParam, 'base64url');
                 // Decompress
-                const decompressedJson = pako.inflate(bytes, { to: 'string' });
+                const decompressedJson = pako.inflate(compressedData, { to: 'string' });
                 const parsedData = JSON.parse(decompressedJson);
                 setInvoiceData(parsedData);
             } catch (e) {
