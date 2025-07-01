@@ -52,10 +52,11 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
     <div id="invoice-print-area" className="relative bg-white text-black p-8 font-body text-[10px] w-full h-full overflow-auto">
         {/* Watermark */}
         <div 
-            className="absolute top-1/2 -translate-y-1/2 left-4 text-gray-200 font-bold z-0 tracking-[0.2em]"
+            className="absolute top-1/3 left-4 font-bold z-0 tracking-[0.2em]"
             style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
         >
-            <span className="text-5xl">Invoice [{formattedInvoiceNumber}]</span>
+            <span className="text-5xl text-primary">[{formattedInvoiceNumber}]</span>
+            <span className="text-5xl text-gray-800">Invoice</span>
         </div>
         
         <div className="relative z-10 flex flex-col h-full ml-[60px]">
@@ -71,7 +72,7 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
                         <p>Vijayawada, Andhra Pradesh -520008</p>
                     </div>
                 </div>
-                <div className="w-64 h-32 relative -mt-4">
+                <div className="w-64 h-32 relative -mt-10">
                     <Image src="https://lh3.googleusercontent.com/p/AF1QipMM0m7qWmmlOkZMr-jto2vdsuC-xbzn8DYaTQIF=s1360-w1360-h1020-rw" alt="Flywheels Logo" fill style={{objectFit: 'contain'}} data-ai-hint="car logo" unoptimized />
                 </div>
             </header>
@@ -130,8 +131,8 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
                 <div className="flex flex-col items-end">
                     <div className="w-full border-t-2 border-primary mb-2"></div>
                     <div className="flex justify-between items-center w-[250px]">
-                        <span className="font-bold text-base">GRAND TOTAL</span>
-                        <span className="font-bold text-base">{formatCurrency(grandTotal)}</span>
+                        <span className="font-bold text-base text-foreground">GRAND TOTAL</span>
+                        <span className="font-bold text-base text-foreground">{formatCurrency(grandTotal)}</span>
                     </div>
                 </div>
                 
