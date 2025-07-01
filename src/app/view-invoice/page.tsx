@@ -20,8 +20,13 @@ function ViewInvoicePage() {
         const dataParam = searchParams.get('data');
         if (dataParam) {
             try {
-                // Decode Base64 to binary string
-                const binaryString = atob(dataParam);
+                // URL-safe base64 decode
+                let base64 = dataParam.replace(/-/g, '+').replace(/_/g, '/');
+                // Pad with '=' characters
+                while (base64.length % 4) {
+                    base64 += '=';
+                }
+                const binaryString = atob(base64);
                 // Convert binary string to Uint8Array
                 const len = binaryString.length;
                 const bytes = new Uint8Array(len);
