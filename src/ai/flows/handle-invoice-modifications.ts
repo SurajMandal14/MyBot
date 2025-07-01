@@ -35,38 +35,23 @@ const prompt = ai.definePrompt({
   name: 'handleInvoiceModificationsPrompt',
   input: {schema: HandleInvoiceModificationsInputSchema},
   output: {schema: HandleInvoiceModificationsOutputSchema},
-  prompt: `You are an AI assistant that helps modify document details (invoice or quotation) based on a user's natural language request.
+  prompt: `You are an AI assistant that modifies a JSON document based on a user's request.
 
-The user will provide the current document details (which could be a JSON object string, or a human-readable text summary) and a modification request.
+The user will provide the current document details as a JSON string and a modification request in natural language.
 
-Your task is to understand the modification request (which could be to add, remove, or update one or more line items) and apply it to the document details.
+Your task is to intelligently update the JSON based on the user's request.
+- The request could be to add, remove, or update line items in the 'items' array.
+- The request could also be to add or update top-level fields like 'customerName', 'vehicleNumber', or 'carModel', especially if they are empty or need correction.
+- Recalculate totals if necessary.
+- The 'invoiceNumber' or 'quotationNumber' key and its value MUST be preserved from the original document.
 
-The final, modified document must be returned as a JSON string in the 'modifiedInvoiceDetails' field.
-
-This JSON string MUST preserve the structure of the original document. It will generally look like this:
-{
-  "invoiceNumber" or "quotationNumber": string,
-  "vehicleNumber": string,
-  "customerName": string,
-  "carModel": string,
-  "items": [
-    {
-      "description": string,
-      "quantity": number (optional),
-      "unitPrice": number (optional),
-      "total": number
-    }
-  ]
-}
-Recalculate totals if necessary. Ensure all numbers in the final JSON are just numbers, not strings. The key 'invoiceNumber' or 'quotationNumber' MUST match what was in the original details.
-
-Current Document Details:
+Current Document Details (JSON):
 {{{documentDetails}}}
 
 User's Modification Request:
 {{{modificationRequest}}}
 
-Respond with the full output object, including the 'success' flag and a 'message' describing the action taken (e.g., "Successfully added 2 wiper blades.").`,
+Respond with the full output object, including the 'success' flag, a 'message' describing the action taken, and the complete, updated JSON document in the 'modifiedInvoiceDetails' field.`,
 });
 
 const handleInvoiceModificationsFlow = ai.defineFlow(

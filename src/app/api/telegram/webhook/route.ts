@@ -116,7 +116,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
             console.log(`INFO: [chatId: ${chatId}] Document is partial. Missing: ${missingFields.join(', ')}. Asking for info.`);
             
             const docTypeForUrl = isQuotation ? 'quotation' : 'invoice';
-            let responseText = `I've parsed the items, but I'm missing some details: **${missingFields.join(', ')}**.\n\nPlease reply to this message with the missing information.`;
+            let responseText = `I've parsed the items, but I'm missing some details: ${missingFields.join(', ')}.\n\nPlease reply to this message with the missing information.`;
             
             const jsonData = JSON.stringify(data);
             const compressedData = pako.deflate(jsonData);
@@ -124,7 +124,6 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
             const contextUrl = `${publicUrl.replace(/\/$/, '')}/view-${docTypeForUrl}?data=${base64Data}`;
 
             const replyOptions: TelegramBot.SendMessageOptions = {
-                parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [
                         // This button is essential for passing state, but is worded to guide the user to reply.
