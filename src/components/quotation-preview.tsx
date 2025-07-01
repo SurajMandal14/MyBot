@@ -70,7 +70,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
                     </div>
                 </div>
                 <div className="w-32 h-20 relative">
-                    <Image src="https://i.ibb.co/0FDhBq1/showcase-flywheels-logo-red.png" alt="Flywheels Logo" fill style={{objectFit: 'contain'}} data-ai-hint="car logo" unoptimized />
+                    <Image src="https://lh3.googleusercontent.com/p/AF1QipMM0m7qWmmlOkZMr-jto2vdsuC-xbzn8DYaTQIF=s1360-w1360-h1020-rw" alt="Flywheels Logo" fill style={{objectFit: 'contain'}} data-ai-hint="car logo" unoptimized />
                 </div>
             </header>
 
