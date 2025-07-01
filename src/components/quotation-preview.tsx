@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import type { QuotationSchema } from '@/lib/validators';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import Image from 'next/image';
 
 interface QuotationPreviewProps {
   quotationData: QuotationSchema | null;
@@ -70,7 +69,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
                     </div>
                 </div>
                 <div className="w-32 h-20 relative">
-                    <Image src="https://i.ibb.co/VvzrW0p/showcase-flywheels-logo-red.png" alt="Flywheels Logo" fill style={{ objectFit: 'contain' }} data-ai-hint="car logo" />
+                    <img src="https://i.ibb.co/VvzrW0p/showcase-flywheels-logo-red.png" alt="Flywheels Logo" className="w-full h-full object-contain" data-ai-hint="car logo" />
                 </div>
             </header>
 
