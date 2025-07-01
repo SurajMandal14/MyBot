@@ -50,7 +50,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
     <div id="quotation-print-area" className="relative bg-white text-black p-8 font-body text-[10px] w-full h-full overflow-auto">
         {/* Watermark */}
         <div 
-            className="absolute top-1/4 left-4 font-bold text-5xl z-0 tracking-[0.2em]"
+            className="absolute top-8 left-4 font-bold text-5xl z-0 tracking-[0.2em] opacity-60"
             style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
         >
             <span className="text-gray-800">Quotation </span>
@@ -70,7 +70,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
                         <p className="font-bold mt-1 text-black">GST IN: 37AAJFF3362M1Z1</p>
                     </div>
                 </div>
-                <div className="w-48 h-24 relative">
+                <div className="w-96 h-48 relative">
                     <Image src="https://lh3.googleusercontent.com/p/AF1QipMM0m7qWmmlOkZMr-jto2vdsuC-xbzn8DYaTQIF=s1360-w1360-h1020-rw" alt="Flywheels Logo" fill style={{objectFit: 'contain'}} data-ai-hint="car logo" unoptimized />
                 </div>
             </header>
