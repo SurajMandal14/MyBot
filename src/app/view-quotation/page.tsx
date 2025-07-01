@@ -20,8 +20,14 @@ function ViewQuotationPage() {
         const dataParam = searchParams.get('data');
         if (dataParam) {
             try {
-                // Use Buffer to decode the base64url string directly
-                const compressedData = Buffer.from(dataParam, 'base64url');
+                // The browser's Buffer polyfill may not support 'base64url'.
+                // We manually convert base64url to standard base64.
+                let base64 = dataParam.replace(/-/g, '+').replace(/_/g, '/');
+                // Pad with '=' to make it a valid base64 string
+                while (base64.length % 4) {
+                    base64 += '=';
+                }
+                const compressedData = Buffer.from(base64, 'base64');
                 // Decompress
                 const decompressedJson = pako.inflate(compressedData, { to: 'string' });
                 const parsedData = JSON.parse(decompressedJson);
