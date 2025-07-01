@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { InvoiceSchema } from '@/lib/validators';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import Image from 'next/image';
 
 interface InvoicePreviewProps {
   invoiceData: InvoiceSchema | null;
@@ -71,7 +72,7 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
                     </div>
                 </div>
                 <div className="w-32 h-20 relative">
-                    <img src="https://i.ibb.co/VvzrW0p/showcase-flywheels-logo-red.png" alt="Flywheels Logo" className="w-full h-full object-contain" data-ai-hint="car logo" referrerPolicy="no-referrer" />
+                    <Image src="https://i.postimg.cc/Nf4Lg2B2/showcase-flywheels-logo-red.png" alt="Flywheels Logo" fill style={{objectFit: 'contain'}} data-ai-hint="car logo" />
                 </div>
             </header>
 
