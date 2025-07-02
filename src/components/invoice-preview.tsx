@@ -33,7 +33,7 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
     }).format(amount);
   };
   
-  const formattedInvoiceNumber = invoiceData?.invoiceNumber.toString().padStart(5, '0');
+  const formattedInvoiceNumber = invoiceData?.invoiceNumber.toString();
 
 
   if (!invoiceData) {
@@ -54,7 +54,7 @@ export function InvoicePreview({ invoiceData }: InvoicePreviewProps) {
             className="absolute top-8 left-4 font-bold text-5xl z-0 tracking-[0.2em] opacity-60"
             style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
         >
-            <span className="text-gray-800">Invoice </span>
+            <span className="text-gray-800 whitespace-nowrap">Invoice </span>
             <span className="text-primary">[{formattedInvoiceNumber}]</span>
         </div>
         

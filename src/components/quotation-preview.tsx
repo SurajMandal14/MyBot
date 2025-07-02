@@ -33,7 +33,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
     }).format(amount);
   };
 
-  const formattedQuotationNumber = quotationData?.quotationNumber.replace('Q', '').toString().padStart(5, '0');
+  const formattedQuotationNumber = quotationData?.quotationNumber.replace('Q', '').toString();
 
   if (!quotationData) {
     return (
@@ -52,7 +52,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
             className="absolute top-8 left-4 font-bold text-5xl z-0 tracking-[0.2em] opacity-60"
             style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
         >
-            <span className="text-gray-800">Quotation </span>
+            <span className="text-gray-800 whitespace-nowrap">Quotation </span>
             <span className="text-primary">[{formattedQuotationNumber}]</span>
         </div>
         
