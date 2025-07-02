@@ -84,16 +84,35 @@ async function generateQuotationReply(quotationData: any, publicUrl: string) {
 // This function handles the main parsing logic for both invoices and quotations
 async function handleNewDocumentRequest(chatId: number, text: string, messageId: number, publicUrl: string) {
     if (!bot) return; // Exit if bot is not initialized
-    const isQuotation = text.toLowerCase().includes('quote') || text.toLowerCase().includes('quotation');
+
+    const lowerCaseText = text.toLowerCase();
+    const isQuotation = lowerCaseText.startsWith('quote');
+    const isInvoice = lowerCaseText.startsWith('invoice');
+
+    // If the message doesn't start with a valid keyword, guide the user to restart.
+    if (!isQuotation && !isInvoice) {
+        await bot.sendMessage(chatId, "I'm not sure how to handle that. To create a new document, please use the /start command and select an option.");
+        return;
+    }
+
     const docType = isQuotation ? 'Quotation' : 'Invoice';
     
     const parsingMessage = await bot.sendMessage(chatId, `Parsing your text as a ${docType}, please wait...`);
 
+    // Strip the keyword from the text before sending to AI for cleaner parsing.
+    const textForParsing = text.replace(/^(invoice|quote)\s*/i, '');
+    
+    // Check if there is any content left after stripping the keyword.
+    if (!textForParsing.trim()) {
+        await bot.editMessageText(`Please provide some notes after the "${docType.toLowerCase()}" keyword.`, { chat_id: chatId, message_id: parsingMessage.message_id });
+        return;
+    }
+
     try {
-        console.log(`INFO: [chatId: ${chatId}] Starting to parse ${docType} from text: "${text}"`);
+        console.log(`INFO: [chatId: ${chatId}] Starting to parse ${docType} from text: "${textForParsing}"`);
         
         const action = isQuotation ? parseQuotationAction : parseInvoiceAction;
-        const result = await action({ text });
+        const result = await action({ text: textForParsing });
 
         console.log(`INFO: [chatId: ${chatId}] AI Action Result:`, JSON.stringify(result, null, 2));
 
@@ -114,7 +133,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
         const hasItems = data.items && data.items.length > 0;
 
         if (missingFields.length > 0 && hasItems) {
-            // NEW LOGIC: Document is partial. Ask for more information before generating the final link.
+            // Document is partial. Ask for more information before generating the final link.
             console.log(`INFO: [chatId: ${chatId}] Document is partial. Missing: ${missingFields.join(', ')}. Asking for info.`);
             
             const docTypeForUrl = isQuotation ? 'quotation' : 'invoice';
@@ -129,7 +148,6 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
                 parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [
-                        // This button is essential for passing state, but is worded to guide the user to reply.
                         [{ text: '📝 Context (Reply to this message to add info)', url: contextUrl }]
                     ]
                 }
@@ -142,12 +160,11 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
             });
 
         } else {
-            // EXISTING LOGIC: Document is complete, generate the final link.
+            // Document is complete, generate the final link.
             console.log(`INFO: [chatId: ${chatId}] Document is complete. Generating final reply.`);
             const replyGenerator = isQuotation ? generateQuotationReply : generateInvoiceReply;
             const { responseText, replyOptions } = await replyGenerator(data, publicUrl);
             
-            // This is a safety check in case parsing was successful but yielded an empty document link.
             if (Object.keys(replyOptions).length === 0) {
                  await bot.editMessageText(responseText, { chat_id: chatId, message_id: parsingMessage.message_id });
                  return;
@@ -272,12 +289,12 @@ export async function POST(req: NextRequest) {
         }
         
         if (text === 'Invoice') {
-            await bot.sendMessage(chatId, 'Please send your service notes in a single message.');
+            await bot.sendMessage(chatId, 'Got it. To create an invoice, please send your service notes in a single message, *starting with the word "invoice"*. \n\nFor example: `invoice AP01AB1234, oil change...`', { parse_mode: 'Markdown' });
             return NextResponse.json({ status: 'ok' });
         }
 
         if (text === 'Quotation') {
-            await bot.sendMessage(chatId, 'Please send your service notes for the quotation in a single message.');
+            await bot.sendMessage(chatId, 'Got it. To create a quotation, please send your service notes in a single message, *starting with the word "quote"*. \n\nFor example: `quote AP01AB1234, new bumper...`', { parse_mode: 'Markdown' });
             return NextResponse.json({ status: 'ok' });
         }
         
