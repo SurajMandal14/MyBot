@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -59,7 +60,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
         <div className="relative z-10 flex flex-col h-full ml-[60px]">
              <header className="flex justify-between items-start -mt-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-primary whitespace-nowrap">
+                    <h1 className="text-3xl font-bold text-primary print:text-2xl">
                         FLYWHEELS AUTO
                     </h1>
                     <div className="text-gray-600 mt-2 text-xs leading-snug">
@@ -69,7 +70,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
                         <p className="font-bold mt-1 text-black">GST IN: 37AAJFF3362M1Z1</p>
                     </div>
                 </div>
-                <div className="w-96 h-48 relative">
+                <div className="w-96 h-48 relative print:w-64">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="https://lh3.googleusercontent.com/p/AF1QipMM0m7qWmmlOkZMr-jto2vdsuC-xbzn8DYaTQIF=s1360-w1360-h1020-rw" alt="Flywheels Logo" className="w-full h-full object-contain" data-ai-hint="car logo" />
                 </div>
