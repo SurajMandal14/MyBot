@@ -59,7 +59,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
         <div className="relative z-10 flex flex-col h-full ml-[60px]">
              <header className="flex justify-between items-start -mt-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-primary">
+                    <h1 className="text-3xl font-bold text-primary whitespace-nowrap">
                         FLYWHEELS AUTO
                     </h1>
                     <div className="text-gray-600 mt-2 text-xs leading-snug">
