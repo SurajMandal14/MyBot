@@ -79,7 +79,7 @@ export function QuotationPreview({ quotationData }: QuotationPreviewProps) {
                         <p className="font-bold mt-1 text-black">GST IN: 37AAJFF3362M1Z1</p>
                     </div>
                 </div>
-                <div className="w-full max-w-48 h-auto justify-self-end print:max-w-32">
+                <div className="w-full max-w-56 h-auto justify-self-end print:max-w-36">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="https://lh3.googleusercontent.com/p/AF1QipMM0m7qWmmlOkZMr-jto2vdsuC-xbzn8DYaTQIF=s1360-w1360-h1020-rw" alt="Flywheels Logo" className="w-full h-full object-contain" data-ai-hint="car logo" />
                 </div>
