@@ -4,6 +4,8 @@ import TelegramBot from 'node-telegram-bot-api';
 import { modifyInvoiceAction, parseInvoiceAction, parseQuotationAction } from '@/app/actions';
 import pako from 'pako';
 
+export const dynamic = 'force-dynamic';
+
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
 if (!token) {
