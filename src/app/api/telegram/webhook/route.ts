@@ -91,7 +91,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
 
     // If the message doesn't start with a valid keyword, guide the user to restart.
     if (!isQuotation && !isInvoice) {
-        await bot.sendMessage(chatId, "I'm not sure how to handle that. To create a new document, please use the /start command and select an option.");
+        await bot.sendMessage(chatId, "I'm not sure how to handle that. To create a new document, please use the /start command and follow the instructions.");
         return;
     }
 
@@ -278,23 +278,9 @@ export async function POST(req: NextRequest) {
         }
 
         if (text === '/start') {
-            await bot.sendMessage(chatId, 'Welcome to Flywheels bot, select your action', {
-                reply_markup: {
-                    keyboard: [[{ text: 'Invoice' }, { text: 'Quotation' }]],
-                    resize_keyboard: true,
-                    one_time_keyboard: true,
-                }
+            await bot.sendMessage(chatId, 'Welcome to Flywheels Bot!\n\nTo create an invoice, start your message with the word `invoice`.\n\nTo create a quotation, start your message with the word `quote`.\n\nFor example: `invoice AP01AB1234, oil change...`', {
+                parse_mode: 'Markdown'
             });
-            return NextResponse.json({ status: 'ok' });
-        }
-        
-        if (text === 'Invoice') {
-            await bot.sendMessage(chatId, 'Got it. To create an invoice, please send your service notes in a single message, *starting with the word "invoice"*. \n\nFor example: `invoice AP01AB1234, oil change...`', { parse_mode: 'Markdown' });
-            return NextResponse.json({ status: 'ok' });
-        }
-
-        if (text === 'Quotation') {
-            await bot.sendMessage(chatId, 'Got it. To create a quotation, please send your service notes in a single message, *starting with the word "quote"*. \n\nFor example: `quote AP01AB1234, new bumper...`', { parse_mode: 'Markdown' });
             return NextResponse.json({ status: 'ok' });
         }
         

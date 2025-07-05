@@ -46,7 +46,9 @@ const parseServiceDetailsPrompt = ai.definePrompt({
   name: 'parseServiceDetailsPrompt',
   input: {schema: ParseServiceDetailsInputSchema},
   output: {schema: ParseServiceDetailsOutputSchema},
-  prompt: `You are a helpful assistant that extracts vehicle service details from text, supporting both English and Telugu. Correct any spelling mistakes and formatting issues in the extracted text to ensure it is clean and professional.
+  prompt: `You are a helpful assistant that extracts vehicle service details from text, supporting both English and Telugu. 
+  
+  Your most important task is to correct any spelling mistakes and formatting issues in the extracted text to ensure it is clean and professional. For example, if the user enters "brak pads", you must output "brake pads".
 
   The text will contain information about vehicle service, and you should extract the following information:
   - vehicleNumber: The vehicle number.

@@ -47,7 +47,9 @@ const parseQuotationDetailsPrompt = ai.definePrompt({
   name: 'parseQuotationDetailsPrompt',
   input: {schema: ParseQuotationDetailsInputSchema},
   output: {schema: ParseQuotationDetailsOutputSchema},
-  prompt: `You are a helpful assistant that extracts vehicle service details from text to create a QUOTATION, supporting both English and Telugu. Correct any spelling mistakes and formatting issues in the extracted text to ensure it is clean and professional.
+  prompt: `You are a helpful assistant that extracts vehicle service details from text to create a QUOTATION, supporting both English and Telugu.
+
+  Your most important task is to correct any spelling mistakes and formatting issues in the extracted text to ensure it is clean and professional. For example, if the user enters "brak pads", you must output "brake pads".
 
   The text will contain information about vehicle service, and you should extract the following information:
   - vehicleNumber: The vehicle number.
@@ -58,7 +60,7 @@ const parseQuotationDetailsPrompt = ai.definePrompt({
   Here is the text to extract the information from:
   {{text}}
   
-  Make sure the output is in the JSON format as described in the output schema. This is for a quotation, not a final invoice. If a field is not found, leave it blank.  Output the item prices as numbers.  Ensure you can understand text in both English and Telugu.
+  Make sure the output is in the JSON format as described in the output schema. This is for a quotation, not a final invoice. If a field is not found, leave it blank. Output the item prices as numbers. Ensure you can understand text in both English and Telugu.
   `,
 });
 
