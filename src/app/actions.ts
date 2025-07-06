@@ -14,15 +14,35 @@ import {
   ParseQuotationDetailsInput,
 } from '@/ai/flows/parse-quotation-details';
 import {invoiceSchema, quotationSchema} from '@/lib/validators';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
 
 const API_KEY_ERROR_MESSAGE =
   'AI features require a Gemini API key. Please add `GEMINI_API_KEY=your_key` to the .env file and restart the server. You can get a key from Google AI Studio.';
 
 type CounterType = 'invoice' | 'quotation';
 
+/**
+ * Ensures the server is authenticated with Firebase.
+ * If not already signed in, it will sign in anonymously.
+ * This is required to bypass Firestore security rules that block unauthenticated access.
+ */
+async function ensureAuthenticated() {
+  if (auth.currentUser) {
+    return;
+  }
+  try {
+    await signInAnonymously(auth);
+  } catch (error) {
+    console.error("Error signing in anonymously to Firebase:", error);
+    throw new Error("Could not authenticate with Firebase. Please check your project configuration and ensure Anonymous sign-in is enabled.");
+  }
+}
+
+
 async function getNextNumber(type: CounterType): Promise<number> {
+  await ensureAuthenticated(); // Authenticate before running the transaction
   const counterRef = doc(db, 'counters', type);
   try {
     const nextNumber = await runTransaction(db, async (transaction) => {
@@ -114,7 +134,7 @@ export async function parseInvoiceAction(
     return {success: true, data: dataWithInvoiceNumber, error: null};
   } catch (error: any) {
     console.error('Error parsing service details:', error);
-    if (error.message?.includes('API key') || error.message?.includes('database')) {
+    if (error.message?.includes('API key') || error.message?.includes('database') || error.message?.includes('Firebase')) {
       return {success: false, data: null, error: error.message || API_KEY_ERROR_MESSAGE};
     }
     return {
@@ -176,7 +196,7 @@ export async function parseQuotationAction(
     return {success: true, data: dataWithQuotationNumber, error: null};
   } catch (error: any) {
     console.error('Error parsing quotation details:', error);
-    if (error.message?.includes('API key') || error.message?.includes('database')) {
+    if (error.message?.includes('API key') || error.message?.includes('database') || error.message?.includes('Firebase')) {
       return {success: false, data: null, error: error.message || API_KEY_ERROR_MESSAGE};
     }
     return {
