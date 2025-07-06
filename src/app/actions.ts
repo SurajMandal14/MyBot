@@ -14,44 +14,34 @@ import {
   ParseQuotationDetailsInput,
 } from '@/ai/flows/parse-quotation-details';
 import {invoiceSchema, quotationSchema} from '@/lib/validators';
-import {promises as fs} from 'fs';
-import path from 'path';
-import { revalidatePath } from 'next/cache';
-import { unstable_noStore as noStore } from 'next/cache';
+import { db } from '@/lib/firebase';
+import { doc, runTransaction } from 'firebase/firestore';
 
 const API_KEY_ERROR_MESSAGE =
   'AI features require a Gemini API key. Please add `GEMINI_API_KEY=your_key` to the .env file and restart the server. You can get a key from Google AI Studio.';
 
-const countersFilePath = path.join(process.cwd(), 'src', 'data', 'counters.json');
 type CounterType = 'invoice' | 'quotation';
 
 async function getNextNumber(type: CounterType): Promise<number> {
-  // This is the crucial fix: it tells Next.js not to cache the result of this function,
-  // forcing it to re-read the counters.json file every time.
-  noStore();
-  
-  let counters;
+  const counterRef = doc(db, 'counters', type);
   try {
-    const data = await fs.readFile(countersFilePath, 'utf-8');
-    counters = JSON.parse(data);
-  } catch (error) {
-    // If file doesn't exist or is invalid, create it with initial values.
-    counters = {invoice: 2000, quotation: 2000};
+    const nextNumber = await runTransaction(db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      if (!counterDoc.exists()) {
+        // If the document doesn't exist, the first number will be 2000.
+        transaction.set(counterRef, { value: 2000 });
+        return 2000;
+      }
+      // Otherwise, increment the current number.
+      const newNumber = (counterDoc.data().value || 1999) + 1;
+      transaction.update(counterRef, { value: newNumber });
+      return newNumber;
+    });
+    return nextNumber;
+  } catch (e) {
+    console.error("Firestore transaction failed: ", e);
+    throw new Error(`Could not retrieve ${type} number from the database. Please ensure your Firebase project is correctly configured and Firestore is enabled.`);
   }
-
-  const currentNumber = counters[type] || (type === 'invoice' ? 2000 : 2000);
-  counters[type] = currentNumber + 1;
-
-  try {
-    await fs.mkdir(path.dirname(countersFilePath), {recursive: true});
-    await fs.writeFile(countersFilePath, JSON.stringify(counters, null, 2));
-    // Revalidate the path to clear any other potential caches.
-    revalidatePath('/', 'layout');
-  } catch (writeError) {
-    console.error('Failed to write to counters file:', writeError);
-  }
-
-  return currentNumber;
 }
 
 function isApiKeyMissing() {
@@ -124,8 +114,8 @@ export async function parseInvoiceAction(
     return {success: true, data: dataWithInvoiceNumber, error: null};
   } catch (error: any) {
     console.error('Error parsing service details:', error);
-    if (error.message?.includes('API key')) {
-      return {success: false, data: null, error: API_KEY_ERROR_MESSAGE};
+    if (error.message?.includes('API key') || error.message?.includes('database')) {
+      return {success: false, data: null, error: error.message || API_KEY_ERROR_MESSAGE};
     }
     return {
       success: false,
@@ -186,8 +176,8 @@ export async function parseQuotationAction(
     return {success: true, data: dataWithQuotationNumber, error: null};
   } catch (error: any) {
     console.error('Error parsing quotation details:', error);
-    if (error.message?.includes('API key')) {
-      return {success: false, data: null, error: API_KEY_ERROR_MESSAGE};
+    if (error.message?.includes('API key') || error.message?.includes('database')) {
+      return {success: false, data: null, error: error.message || API_KEY_ERROR_MESSAGE};
     }
     return {
       success: false,
