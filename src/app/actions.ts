@@ -14,9 +14,6 @@ import {
   ParseQuotationDetailsInput,
 } from '@/ai/flows/parse-quotation-details';
 import {invoiceSchema, quotationSchema} from '@/lib/validators';
-import { db, app } from '@/lib/firebase';
-import { doc, runTransaction } from 'firebase/firestore';
-import { getAuth, signInAnonymously, type Auth } from 'firebase/auth';
 
 const API_KEY_ERROR_MESSAGE =
   'AI features require a Gemini API key. Please add `GEMINI_API_KEY=your_key` to the .env file and restart the server. You can get a key from Google AI Studio.';
@@ -24,70 +21,19 @@ const API_KEY_ERROR_MESSAGE =
 type CounterType = 'invoice' | 'quotation';
 
 
-// Singleton pattern for Auth to avoid re-initialization
-let auth: Auth | null = null;
-function getAuthClient(): Auth {
-    if (auth) {
-        return auth;
-    }
-    try {
-        // Initialize Auth on first use. This will throw if the API key is invalid.
-        auth = getAuth(app);
-        return auth;
-    } catch (error: any) {
-        // Catch the specific invalid API key error and provide a helpful message.
-        if (error.code === 'auth/invalid-api-key' || error.message?.includes('invalid-api-key')) {
-            throw new Error("Firebase initialization failed due to an invalid API key. Please verify the NEXT_PUBLIC_FIREBASE_API_KEY in your Vercel environment variables and redeploy.");
-        }
-        // Re-throw any other initialization errors.
-        throw error;
-    }
-}
-
-
-/**
- * Ensures the server is authenticated with Firebase.
- * If not already signed in, it will sign in anonymously.
- * This is required to bypass Firestore security rules that block unauthenticated access.
- */
-async function ensureAuthenticated() {
-  // This will throw the helpful error if the API key is invalid.
-  const authClient = getAuthClient();
-
-  if (authClient.currentUser) {
-    return;
-  }
-  try {
-    await signInAnonymously(authClient);
-  } catch (error) {
-    console.error("Error signing in anonymously to Firebase:", error);
-    // This error now specifically handles cases where anonymous sign-in is disabled.
-    throw new Error("Could not authenticate with Firebase. Please ensure Anonymous sign-in is enabled in your Firebase project's Authentication settings.");
-  }
-}
-
-
+// NOTE: Database functionality has been removed.
+// The function below provides a non-sequential, time-based number as a placeholder.
+// This ensures unique numbers on serverless platforms like Vercel without a database.
 async function getNextNumber(type: CounterType): Promise<number> {
-  await ensureAuthenticated(); // Authenticate before running the transaction
-  const counterRef = doc(db, 'counters', type);
-  try {
-    const nextNumber = await runTransaction(db, async (transaction) => {
-      const counterDoc = await transaction.get(counterRef);
-      if (!counterDoc.exists()) {
-        // If the document doesn't exist, the first number will be 2000.
-        transaction.set(counterRef, { value: 2000 });
-        return 2000;
-      }
-      // Otherwise, increment the current number.
-      const newNumber = (counterDoc.data().value || 1999) + 1;
-      transaction.update(counterRef, { value: newNumber });
-      return newNumber;
-    });
-    return nextNumber;
-  } catch (e) {
-    console.error("Firestore transaction failed: ", e);
-    throw new Error(`Could not retrieve ${type} number from the database. Please ensure your Firebase project is correctly configured and Firestore is enabled.`);
-  }
+  // Returns a number like `2407251030` (YYMMDDHHMM)
+  const now = new Date();
+  const year = now.getFullYear().toString().slice(-2);
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const day = now.getDate().toString().padStart(2, '0');
+  const hours = now.getHours().toString().padStart(2, '0');
+  const minutes = now.getMinutes().toString().padStart(2, '0');
+  console.log(`Generating ${type} number based on current time.`);
+  return parseInt(`${year}${month}${day}${hours}${minutes}`);
 }
 
 function isApiKeyMissing() {
@@ -160,7 +106,7 @@ export async function parseInvoiceAction(
     return {success: true, data: dataWithInvoiceNumber, error: null};
   } catch (error: any) {
     console.error('Error parsing service details:', error);
-    if (error.message?.includes('API key') || error.message?.includes('database') || error.message?.includes('Firebase')) {
+    if (error.message?.includes('API key')) {
       return {success: false, data: null, error: error.message || API_KEY_ERROR_MESSAGE};
     }
     return {
@@ -222,7 +168,7 @@ export async function parseQuotationAction(
     return {success: true, data: dataWithQuotationNumber, error: null};
   } catch (error: any) {
     console.error('Error parsing quotation details:', error);
-    if (error.message?.includes('API key') || error.message?.includes('database') || error.message?.includes('Firebase')) {
+    if (error.message?.includes('API key')) {
       return {success: false, data: null, error: error.message || API_KEY_ERROR_MESSAGE};
     }
     return {
