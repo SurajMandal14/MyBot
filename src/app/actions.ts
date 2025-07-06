@@ -25,15 +25,13 @@ type CounterType = 'invoice' | 'quotation';
 // The function below provides a non-sequential, time-based number as a placeholder.
 // This ensures unique numbers on serverless platforms like Vercel without a database.
 async function getNextNumber(type: CounterType): Promise<number> {
-  // Returns a number like `2407251030` (YYMMDDHHMM)
+  // Returns a 4-digit number based on the current minute and second (e.g., 3059 for 10:30:59).
+  // This is not guaranteed to be unique but has a low chance of collision.
   const now = new Date();
-  const year = now.getFullYear().toString().slice(-2);
-  const month = (now.getMonth() + 1).toString().padStart(2, '0');
-  const day = now.getDate().toString().padStart(2, '0');
-  const hours = now.getHours().toString().padStart(2, '0');
   const minutes = now.getMinutes().toString().padStart(2, '0');
-  console.log(`Generating ${type} number based on current time.`);
-  return parseInt(`${year}${month}${day}${hours}${minutes}`);
+  const seconds = now.getSeconds().toString().padStart(2, '0');
+  console.log(`Generating ${type} number based on current time (MMSS).`);
+  return parseInt(`${minutes}${seconds}`);
 }
 
 function isApiKeyMissing() {
