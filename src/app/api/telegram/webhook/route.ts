@@ -280,7 +280,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (text === '/start') {
-            await bot.sendMessage(chatId, 'Welcome to Flywheels Bot!\n\nTo create an invoice, start your message with the word `invoice`.\n\nTo create a quotation, start your message with the word `quote`.\n\nFor example: `invoice AP01AB1234, oil change...`\n\n*Note: If invoice numbers stop updating, clear the chat history and start a new conversation to refresh the bot.*', {
+            await bot.sendMessage(chatId, 'Welcome to Flywheels Bot!\n\nTo create an invoice, start your message with the word `invoice`.\n\nTo create a quotation, start your message with the word `quote`.\n\nFor example: `invoice AP01AB1234, oil change...`', {
                 parse_mode: 'Markdown'
             });
             return NextResponse.json({ status: 'ok' });

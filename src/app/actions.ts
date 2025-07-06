@@ -17,6 +17,7 @@ import {invoiceSchema, quotationSchema} from '@/lib/validators';
 import {promises as fs} from 'fs';
 import path from 'path';
 import { revalidatePath } from 'next/cache';
+import { unstable_noStore as noStore } from 'next/cache';
 
 const API_KEY_ERROR_MESSAGE =
   'AI features require a Gemini API key. Please add `GEMINI_API_KEY=your_key` to the .env file and restart the server. You can get a key from Google AI Studio.';
@@ -25,6 +26,10 @@ const countersFilePath = path.join(process.cwd(), 'src', 'data', 'counters.json'
 type CounterType = 'invoice' | 'quotation';
 
 async function getNextNumber(type: CounterType): Promise<number> {
+  // This is the crucial fix: it tells Next.js not to cache the result of this function,
+  // forcing it to re-read the counters.json file every time.
+  noStore();
+  
   let counters;
   try {
     const data = await fs.readFile(countersFilePath, 'utf-8');
@@ -40,8 +45,7 @@ async function getNextNumber(type: CounterType): Promise<number> {
   try {
     await fs.mkdir(path.dirname(countersFilePath), {recursive: true});
     await fs.writeFile(countersFilePath, JSON.stringify(counters, null, 2));
-    // This is the crucial fix: it tells Next.js to clear any cached data,
-    // forcing it to re-read the counters.json file on the next request.
+    // Revalidate the path to clear any other potential caches.
     revalidatePath('/', 'layout');
   } catch (writeError) {
     console.error('Failed to write to counters file:', writeError);
