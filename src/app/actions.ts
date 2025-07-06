@@ -14,14 +14,36 @@ import {
   ParseQuotationDetailsInput,
 } from '@/ai/flows/parse-quotation-details';
 import {invoiceSchema, quotationSchema} from '@/lib/validators';
-import { db, auth } from '@/lib/firebase';
+import { db, app } from '@/lib/firebase';
 import { doc, runTransaction } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
+import { getAuth, signInAnonymously, type Auth } from 'firebase/auth';
 
 const API_KEY_ERROR_MESSAGE =
   'AI features require a Gemini API key. Please add `GEMINI_API_KEY=your_key` to the .env file and restart the server. You can get a key from Google AI Studio.';
 
 type CounterType = 'invoice' | 'quotation';
+
+
+// Singleton pattern for Auth to avoid re-initialization
+let auth: Auth | null = null;
+function getAuthClient(): Auth {
+    if (auth) {
+        return auth;
+    }
+    try {
+        // Initialize Auth on first use. This will throw if the API key is invalid.
+        auth = getAuth(app);
+        return auth;
+    } catch (error: any) {
+        // Catch the specific invalid API key error and provide a helpful message.
+        if (error.code === 'auth/invalid-api-key' || error.message?.includes('invalid-api-key')) {
+            throw new Error("Firebase initialization failed due to an invalid API key. Please verify the NEXT_PUBLIC_FIREBASE_API_KEY in your Vercel environment variables and redeploy.");
+        }
+        // Re-throw any other initialization errors.
+        throw error;
+    }
+}
+
 
 /**
  * Ensures the server is authenticated with Firebase.
@@ -29,14 +51,18 @@ type CounterType = 'invoice' | 'quotation';
  * This is required to bypass Firestore security rules that block unauthenticated access.
  */
 async function ensureAuthenticated() {
-  if (auth.currentUser) {
+  // This will throw the helpful error if the API key is invalid.
+  const authClient = getAuthClient();
+
+  if (authClient.currentUser) {
     return;
   }
   try {
-    await signInAnonymously(auth);
+    await signInAnonymously(authClient);
   } catch (error) {
     console.error("Error signing in anonymously to Firebase:", error);
-    throw new Error("Could not authenticate with Firebase. Please check your project configuration and ensure Anonymous sign-in is enabled.");
+    // This error now specifically handles cases where anonymous sign-in is disabled.
+    throw new Error("Could not authenticate with Firebase. Please ensure Anonymous sign-in is enabled in your Firebase project's Authentication settings.");
   }
 }
 

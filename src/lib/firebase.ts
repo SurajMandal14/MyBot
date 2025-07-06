@@ -21,6 +21,8 @@ if (!getApps().length) {
 }
 
 const db = getFirestore(app);
-const auth = getAuth(app);
 
-export { db, auth };
+// We are no longer initializing auth here to prevent crashes on invalid config.
+// It will be initialized on-demand in the server actions.
+
+export { db, app };
