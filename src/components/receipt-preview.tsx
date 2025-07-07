@@ -106,9 +106,9 @@ export function ReceiptPreview({ receiptData }: ReceiptPreviewProps) {
                         <TableRow className="bg-primary hover:bg-primary/90">
                             <TableHead className="text-primary-foreground w-[50px] font-bold">Serial No.</TableHead>
                             <TableHead className="text-primary-foreground w-[45%] font-bold">Description</TableHead>
-                            <TableHead className="text-primary-foreground text-left font-bold">Unit Price</TableHead>
-                            <TableHead className="text-primary-foreground text-left font-bold">Quantity</TableHead>
-                            <TableHead className="text-primary-foreground text-left font-bold">Total</TableHead>
+                            <TableHead className="text-primary-foreground text-right font-bold">Unit Price</TableHead>
+                            <TableHead className="text-primary-foreground text-right font-bold">Quantity</TableHead>
+                            <TableHead className="text-primary-foreground text-right font-bold">Total</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -116,9 +116,9 @@ export function ReceiptPreview({ receiptData }: ReceiptPreviewProps) {
                             <TableRow key={index} className="border-b-gray-200">
                                 <TableCell className="text-center">{index + 1}</TableCell>
                                 <TableCell className="font-medium">{item.description}</TableCell>
-                                <TableCell className="text-left">{item.unitPrice && item.unitPrice > 0 ? formatCurrency(item.unitPrice) : ''}</TableCell>
-                                <TableCell className="text-left">{item.quantity || ''}</TableCell>
-                                <TableCell className="text-left font-medium">{formatCurrency(item.total)}</TableCell>
+                                <TableCell className="text-right">{item.unitPrice && item.unitPrice > 0 ? formatCurrency(item.unitPrice) : ''}</TableCell>
+                                <TableCell className="text-right">{item.quantity || ''}</TableCell>
+                                <TableCell className="text-right font-medium">{formatCurrency(item.total)}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -126,9 +126,9 @@ export function ReceiptPreview({ receiptData }: ReceiptPreviewProps) {
             </main>
             
             <div className="mt-auto pt-4">
-                <div className="flex flex-col items-start">
+                <div className="flex flex-col items-end">
                     <div className="w-full border-t-2 border-primary mb-2"></div>
-                    <div className="flex justify-start items-center w-[250px] gap-4">
+                    <div className="flex justify-between items-center w-[250px]">
                         <span className="font-bold text-base text-gray-800">GRAND TOTAL</span>
                         <span className="font-bold text-base text-gray-800">{formatCurrency(grandTotal)}</span>
                     </div>
