@@ -13,12 +13,16 @@ import {
   parseQuotationDetails,
   ParseQuotationDetailsInput,
 } from '@/ai/flows/parse-quotation-details';
-import {invoiceSchema, quotationSchema} from '@/lib/validators';
+import {
+  parseReceiptDetails,
+  ParseReceiptDetailsInput,
+} from '@/ai/flows/parse-receipt-details';
+import { invoiceSchema, quotationSchema, receiptSchema } from '@/lib/validators';
 
 const API_KEY_ERROR_MESSAGE =
   'AI features require a Gemini API key. Please add `GEMINI_API_KEY=your_key` to the .env file and restart the server. You can get a key from Google AI Studio.';
 
-type CounterType = 'invoice' | 'quotation';
+type CounterType = 'invoice' | 'quotation' | 'receipt';
 
 
 // NOTE: Database functionality has been removed.
@@ -178,6 +182,71 @@ export async function parseQuotationAction(
     };
   }
 }
+
+export async function parseReceiptAction(
+  input: ParseReceiptDetailsInput
+): Promise<{
+  success: boolean;
+  data: (ParseServiceDetailsOutput & { receiptNumber: string }) | null;
+  error: string | null;
+}> {
+  if (isApiKeyMissing()) {
+    console.error(API_KEY_ERROR_MESSAGE);
+    return { success: false, data: null, error: API_KEY_ERROR_MESSAGE };
+  }
+
+  try {
+    const parsedData = await parseReceiptDetails(input);
+
+    if (!hasMeaningfulData(parsedData)) {
+      return {
+        success: false,
+        data: null,
+        error:
+          "The provided text doesn't seem to contain any receipt details. Please provide more specific information.",
+      };
+    }
+
+    const validatedItems = (parsedData.items || []).map(item => ({
+      ...item,
+      quantity: Number(item.quantity) || 0,
+      unitPrice: Number(item.unitPrice) || 0,
+      total: Number(item.total) || 0,
+    }));
+
+    const receiptNumberValue = await getNextNumber('receipt');
+    const receiptNumber = `R${receiptNumberValue}`;
+
+    const dataWithReceiptNumber = {
+      ...parsedData,
+      items: validatedItems,
+      receiptNumber,
+    };
+    
+    const validationResult = receiptSchema.safeParse(dataWithReceiptNumber);
+    if (!validationResult.success) {
+      console.warn(
+        'AI output validation failed for receipt',
+        validationResult.error.issues
+      );
+    }
+
+    return { success: true, data: dataWithReceiptNumber, error: null };
+  } catch (error: any) {
+    console.error('Error parsing receipt details:', error);
+    if (error.message?.includes('API key')) {
+      return { success: false, data: null, error: error.message || API_KEY_ERROR_MESSAGE };
+    }
+    return {
+      success: false,
+      data: null,
+      error: `Failed to parse receipt: ${
+        error.message || 'Unknown AI error'
+      }`,
+    };
+  }
+}
+
 
 export async function modifyInvoiceAction(
   input: HandleInvoiceModificationsInput

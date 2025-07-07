@@ -1,7 +1,7 @@
 // src/app/api/telegram/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import TelegramBot from 'node-telegram-bot-api';
-import { modifyInvoiceAction, parseInvoiceAction, parseQuotationAction } from '@/app/actions';
+import { modifyInvoiceAction, parseInvoiceAction, parseQuotationAction, parseReceiptAction } from '@/app/actions';
 import pako from 'pako';
 
 export const dynamic = 'force-dynamic';
@@ -82,6 +82,40 @@ async function generateQuotationReply(quotationData: any, publicUrl: string) {
     }
 }
 
+async function generateReceiptReply(receiptData: any, publicUrl: string) {
+    try {
+        if (!publicUrl) {
+            console.error(`FATAL: publicUrl was not provided to generateReceiptReply. The bot cannot generate PDF links.`);
+            const responseText = "🔴 Configuration Error: The bot's public URL could not be determined on the server. PDF link generation is disabled.";
+            return { responseText, replyOptions: {} };
+        }
+        
+        let responseText = `Your receipt has been created successfully.\n\nClick the button below to view, print, or save as a PDF.`;
+
+        const jsonData = JSON.stringify(receiptData);
+        const compressedData = pako.deflate(jsonData, { level: 9 });
+        const base64Data = Buffer.from(compressedData).toString('base64url');
+        const receiptUrl = `${publicUrl.replace(/\/$/, '')}/view-receipt?data=${base64Data}`;
+
+        const replyOptions: TelegramBot.SendMessageOptions = {
+            parse_mode: 'Markdown',
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '📄 View and Print Receipt', url: receiptUrl }]
+                ]
+            }
+        };
+        
+        responseText += `\n\n*To make changes, reply to this message with your request (e.g., "add service charge 100").*`;
+
+        return { responseText, replyOptions };
+    } catch(error: any) {
+        console.error(`ERROR: Failed to generate receipt reply link. Data might be malformed.`, error);
+        const responseText = `Your receipt was parsed, but an internal error occurred while creating the PDF link. Please check the server logs for details.`;
+        return { responseText, replyOptions: {} };
+    }
+}
+
 
 // This function handles the main parsing logic for both invoices and quotations
 async function handleNewDocumentRequest(chatId: number, text: string, messageId: number, publicUrl: string) {
@@ -90,19 +124,20 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
     const lowerCaseText = text.toLowerCase();
     const isQuotation = lowerCaseText.startsWith('quote');
     const isInvoice = lowerCaseText.startsWith('invoice');
+    const isReceipt = lowerCaseText.startsWith('receipt');
 
     // If the message doesn't start with a valid keyword, guide the user to restart.
-    if (!isQuotation && !isInvoice) {
+    if (!isQuotation && !isInvoice && !isReceipt) {
         await bot.sendMessage(chatId, "I'm not sure how to handle that. To create a new document, please use the /start command and follow the instructions.");
         return;
     }
 
-    const docType = isQuotation ? 'Quotation' : 'Invoice';
+    const docType = isQuotation ? 'Quotation' : isInvoice ? 'Invoice' : 'Receipt';
     
     const parsingMessage = await bot.sendMessage(chatId, `Parsing your text as a ${docType}, please wait...`);
 
     // Strip the keyword from the text before sending to AI for cleaner parsing.
-    const textForParsing = text.replace(/^(invoice|quote)\s*/i, '');
+    const textForParsing = text.replace(/^(invoice|quote|receipt)\s*/i, '');
     
     // Check if there is any content left after stripping the keyword.
     if (!textForParsing.trim()) {
@@ -113,7 +148,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
     try {
         console.log(`INFO: [chatId: ${chatId}] Starting to parse ${docType} from text: "${textForParsing}"`);
         
-        const action = isQuotation ? parseQuotationAction : parseInvoiceAction;
+        const action = isQuotation ? parseQuotationAction : isInvoice ? parseInvoiceAction : parseReceiptAction;
         const result = await action({ text: textForParsing });
 
         console.log(`INFO: [chatId: ${chatId}] AI Action Result:`, JSON.stringify(result, null, 2));
@@ -138,7 +173,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
             // Document is partial. Ask for more information before generating the final link.
             console.log(`INFO: [chatId: ${chatId}] Document is partial. Missing: ${missingFields.join(', ')}. Asking for info.`);
             
-            const docTypeForUrl = isQuotation ? 'quotation' : 'invoice';
+            const docTypeForUrl = isQuotation ? 'quotation' : isInvoice ? 'invoice' : 'receipt';
             let responseText = `I've parsed the items, but I'm missing some details: *${missingFields.join(', ')}*.\n\n*Please reply to this message with the missing information (e.g., 'Customer is John, car is a Toyota').*`;
             
             const jsonData = JSON.stringify(data);
@@ -164,7 +199,7 @@ async function handleNewDocumentRequest(chatId: number, text: string, messageId:
         } else {
             // Document is complete, generate the final link.
             console.log(`INFO: [chatId: ${chatId}] Document is complete. Generating final reply.`);
-            const replyGenerator = isQuotation ? generateQuotationReply : generateInvoiceReply;
+            const replyGenerator = isQuotation ? generateQuotationReply : isInvoice ? generateInvoiceReply : generateReceiptReply;
             const { responseText, replyOptions } = await replyGenerator(data, publicUrl);
             
             if (Object.keys(replyOptions).length === 0) {
@@ -226,8 +261,14 @@ async function handleModificationRequest(chatId: number, modificationRequest: st
              console.log(`INFO: [chatId: ${chatId}] Modification successful. Generating new reply.`);
              const modifiedData = result.data as any;
 
-             const isInvoice = 'invoiceNumber' in modifiedData;
-             const replyGenerator = isInvoice ? generateInvoiceReply : generateQuotationReply;
+             let replyGenerator;
+             if ('invoiceNumber' in modifiedData) {
+                replyGenerator = generateInvoiceReply;
+             } else if ('quotationNumber' in modifiedData) {
+                replyGenerator = generateQuotationReply;
+             } else {
+                replyGenerator = generateReceiptReply;
+             }
              
              const { responseText, replyOptions } = await replyGenerator(modifiedData, publicUrl);
              await bot.editMessageText(responseText, { chat_id: chatId, message_id: processingMessage.message_id, ...replyOptions });
@@ -280,7 +321,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (text === '/start') {
-            await bot.sendMessage(chatId, 'Welcome to Flywheels Bot!\n\nTo create an invoice, start your message with the word `invoice`.\n\nTo create a quotation, start your message with the word `quote`.\n\nFor example: `invoice AP01AB1234, oil change...`', {
+            await bot.sendMessage(chatId, 'Welcome to Flywheels Bot!\n\nTo create an invoice, start your message with the word `invoice`.\n\nTo create a quotation, start your message with the word `quote`.\n\nTo create a receipt, start your message with the word `receipt`.\n\nFor example: `invoice AP01AB1234, oil change...`', {
                 parse_mode: 'Markdown'
             });
             return NextResponse.json({ status: 'ok' });

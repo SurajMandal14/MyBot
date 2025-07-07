@@ -1,5 +1,6 @@
 import { InvoiceCreator } from '@/components/invoice-creator';
 import { QuotationCreator } from '@/components/quotation-creator';
+import { ReceiptCreator } from '@/components/receipt-creator';
 import { Logo } from '@/components/icons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -23,6 +24,7 @@ export default function Home() {
             <TabsList>
                 <TabsTrigger value="invoice">Invoice Creator</TabsTrigger>
                 <TabsTrigger value="quotation">Quotation Creator</TabsTrigger>
+                <TabsTrigger value="receipt">Receipt Creator</TabsTrigger>
             </TabsList>
         </div>
         <TabsContent value="invoice">
@@ -30,6 +32,9 @@ export default function Home() {
         </TabsContent>
         <TabsContent value="quotation">
             <QuotationCreator />
+        </TabsContent>
+        <TabsContent value="receipt">
+            <ReceiptCreator />
         </TabsContent>
       </Tabs>
     </main>
