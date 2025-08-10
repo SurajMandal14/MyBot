@@ -49,7 +49,9 @@ const parseReceiptDetailsPrompt = ai.definePrompt({
   output: {schema: ParseReceiptDetailsOutputSchema},
   prompt: `You are a helpful assistant that extracts vehicle service details from text to create a RECEIPT, supporting both English and Telugu.
 
-  Your most important task is to correct any spelling mistakes and formatting issues in the extracted text to ensure it is clean and professional. For example, if the user enters "brak pads", you must output "brake pads".
+  Your most important task is to preserve the item descriptions exactly as they are written, without correcting spelling or expanding abbreviations. For example, if the user enters "oilfltr" or "brak pads", you must output "oilfltr" or "brak pads" exactly.
+
+  Do NOT expand these specific shortcuts: "r&r", "Lh rh", "Fr rr", "Strng". Keep them as they are.
 
   The text will contain information about vehicle service, and you should extract the following information:
   - vehicleNumber: The vehicle number.
