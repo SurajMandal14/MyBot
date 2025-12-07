@@ -71,6 +71,7 @@ const parseReceiptDetailsFlow = ai.defineFlow(
     name: 'parseReceiptDetailsFlow',
     inputSchema: ParseReceiptDetailsInputSchema,
     outputSchema: ParseReceiptDetailsOutputSchema,
+    models: ['google-primary/gemini-2.0-flash', 'google-secondary/gemini-2.0-flash'],
   },
   async input => {
     const {output} = await parseReceiptDetailsPrompt(input);

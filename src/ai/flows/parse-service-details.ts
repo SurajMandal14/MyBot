@@ -70,6 +70,7 @@ const parseServiceDetailsFlow = ai.defineFlow(
     name: 'parseServiceDetailsFlow',
     inputSchema: ParseServiceDetailsInputSchema,
     outputSchema: ParseServiceDetailsOutputSchema,
+    models: ['google-primary/gemini-2.0-flash', 'google-secondary/gemini-2.0-flash'],
   },
   async input => {
     const {output} = await parseServiceDetailsPrompt(input);
