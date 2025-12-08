@@ -11,6 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { callModelWithFallback } from '@/ai/model-fallback';
 
 const HandleInvoiceModificationsInputSchema = z.object({
   documentDetails: z.string().describe('The current document details (invoice or quotation), either as a JSON string or a human-readable summary.'),
@@ -54,6 +55,9 @@ User's Modification Request:
 Respond with the full output object, including the 'success' flag, a 'message' describing the action taken, and the complete, updated JSON document in the 'modifiedInvoiceDetails' field.`,
 });
 
+/**
+ * Flow with automatic fallback to alternative APIs if Gemini quota is exhausted
+ */
 const handleInvoiceModificationsFlow = ai.defineFlow(
   {
     name: 'handleInvoiceModificationsFlow',
@@ -62,6 +66,7 @@ const handleInvoiceModificationsFlow = ai.defineFlow(
   },
   async input => {
     try {
+      // Try primary Genkit/Gemini flow first
       const {output} = await prompt(input);
       if (!output) {
         throw new Error('Failed to modify document details.');
@@ -70,12 +75,55 @@ const handleInvoiceModificationsFlow = ai.defineFlow(
       JSON.parse(output.modifiedInvoiceDetails);
       return output;
     } catch (error: any) {
-      console.error('Error modifying document details:', error);
-      return {
-        modifiedInvoiceDetails: input.documentDetails,
-        success: false,
-        message: `Failed to modify document details: ${error.message || 'Unknown error'}`,
-      };
+      // If Gemini fails (quota exhausted, etc), try fallback APIs
+      console.warn('Primary Gemini API failed, attempting fallback...', error);
+      
+      const fallbackPrompt = `You are an AI assistant that modifies a JSON document based on a user's request.
+
+Your task is to intelligently update the JSON based on the user's request.
+- The request could be to add, remove, or update line items in the 'items' array.
+- The request could also be to add or update top-level fields like 'customerName', 'vehicleNumber', or 'carModel', especially if they are empty or need correction.
+- Recalculate totals if necessary.
+- The 'invoiceNumber' or 'quotationNumber' key and its value MUST be preserved from the original document.
+
+Current Document Details (JSON):
+${input.documentDetails}
+
+User's Modification Request:
+${input.modificationRequest}
+
+Return ONLY a valid JSON with these fields:
+- modifiedInvoiceDetails: a JSON string containing the updated document
+- success: boolean
+- message: string describing the action`;
+
+      try {
+        const response = await callModelWithFallback(fallbackPrompt);
+        
+        // Parse JSON from response
+        const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          // Validate the response has required fields
+          if (parsed.modifiedInvoiceDetails && parsed.success !== undefined && parsed.message) {
+            // Validate that modifiedInvoiceDetails is valid JSON
+            JSON.parse(parsed.modifiedInvoiceDetails);
+            console.log(
+              `Successfully modified using fallback API: ${response.provider}/${response.model}`
+            );
+            return parsed as HandleInvoiceModificationsOutput;
+          }
+        }
+        
+        throw new Error('Invalid response structure from fallback API');
+      } catch (fallbackError) {
+        console.error('Fallback API also failed:', fallbackError);
+        return {
+          modifiedInvoiceDetails: input.documentDetails,
+          success: false,
+          message: `Failed to modify document - both primary and fallback APIs failed: ${error.message || 'Unknown error'}`,
+        };
+      }
     }
   }
 );
