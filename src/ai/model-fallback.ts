@@ -20,7 +20,17 @@ export interface ModelConfig {
   const modelConfigs: ModelConfig[] = [
     {
       provider: 'gemini',
+      model: 'gemini-2.5-flash',
+      apiKey: process.env.GEMINI_API_KEY || '',
+    },
+    {
+      provider: 'gemini',
       model: 'gemini-2.0-flash',
+      apiKey: process.env.GEMINI_API_KEY || '',
+    },
+    {
+      provider: 'gemini',
+      model: 'gemini-1.5-pro',
       apiKey: process.env.GEMINI_API_KEY || '',
     },
     {
@@ -38,6 +48,11 @@ export interface ModelConfig {
       model: 'openai/gpt-4-turbo',
       apiKey: process.env.OPENROUTER_API_KEY || '',
     },
+    {
+      provider: 'openrouter',
+      model: 'meta-llama/llama-3.3-70b-instruct',
+      apiKey: process.env.OPENROUTER_API_KEY || '',
+    },    
     {
       provider: 'grok',
       model: 'grok-2',
