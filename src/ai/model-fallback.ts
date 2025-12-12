@@ -5,7 +5,7 @@
  */
 
 export interface ModelConfig {
-  provider: 'gemini' | 'openai' | 'openrouter' | 'grok';
+  provider: 'openai' | 'openrouter' | 'grok';
   model: string;
   apiKey: string;
 }
@@ -24,73 +24,22 @@ export interface FallbackResponse {
 const DEFAULT_TEMPERATURE = 0.7;
 const DEFAULT_MAX_TOKENS = 1024; // Lowered from 2048 to save cost
 
-// Model configuration in order of preference (cheapest / free first)
+// Model configuration in order of preference (cheap/free first,
+// then paid OpenRouter, then Grok, then direct OpenAI last)
 const modelConfigs: ModelConfig[] = [
-  // 1) Gemini Flash – best price/perf if you have free tier or low rate
-  {
-    provider: 'gemini',
-    model: 'gemini-2.5-flash',
-    apiKey: process.env.GEMINI_API_KEY || '',
-  },
-
-  // 2) OpenRouter free models (verify they exist in OpenRouter models page)
-  // DeepSeek R1 free
+  // OpenRouter free models
   {
     provider: 'openrouter',
     model: 'deepseek/deepseek-r1:free',
     apiKey: process.env.OPENROUTER_API_KEY || '',
   },
-  // DeepSeek R1 distill (Qwen 32B) free
-  {
-    provider: 'openrouter',
-    model: 'deepseek/deepseek-r1-distill-qwen-32b:free',
-    apiKey: process.env.OPENROUTER_API_KEY || '',
-  },
-  // LLaMA 4 Maverick free
   {
     provider: 'openrouter',
     model: 'meta-llama/llama-4-maverick:free',
     apiKey: process.env.OPENROUTER_API_KEY || '',
   },
 
-  // 3) Other Gemini variants (still cheaper than Pro in many cases)
-  {
-    provider: 'gemini',
-    model: 'gemini-2.0-flash',
-    apiKey: process.env.GEMINI_API_KEY || '',
-  },
-  {
-    provider: 'gemini',
-    model: 'gemini-1.5-pro',
-    apiKey: process.env.GEMINI_API_KEY || '',
-  },
-  // Secondary Gemini project/key if you really have a separate project
-  {
-    provider: 'gemini',
-    model: 'gemini-1.5-pro',
-    apiKey: process.env.GEMINI_API_KEY_SECONDARY || '',
-  },
-
-  // 4) Gemini Pro (more expensive / powerful)
-  {
-    provider: 'gemini',
-    model: 'gemini-2.5-pro',
-    apiKey: process.env.GEMINI_API_KEY || '',
-  },
-  {
-    provider: 'gemini',
-    model: 'gemini-3-pro',
-    apiKey: process.env.GEMINI_API_KEY || '',
-  },
-
-  // 5) OpenAI paid
-  {
-    provider: 'openai',
-    model: 'gpt-4-turbo',
-    apiKey: process.env.OPENAI_API_KEY || '',
-  },
-
-  // 6) OpenRouter paid / other
+  // Preferred OpenRouter paid models
   {
     provider: 'openrouter',
     model: 'openai/gpt-4-turbo',
@@ -102,62 +51,26 @@ const modelConfigs: ModelConfig[] = [
     apiKey: process.env.OPENROUTER_API_KEY || '',
   },
 
-  // 7) Grok (xAI)
+  // Grok (xAI)
   {
     provider: 'grok',
     model: 'grok-2',
     apiKey: process.env.GROK_API_KEY || '',
+  },
+
+  // Direct OpenAI as last resort
+  {
+    provider: 'openai',
+    model: 'gpt-4-turbo',
+    apiKey: process.env.OPENAI_API_KEY || '',
   },
 ];
 
 /**
  * Calls Gemini API
  */
-async function callGemini(
-  model: string,
-  apiKey: string,
-  prompt: string,
-  schema?: any,
-  maxTokens: number = DEFAULT_MAX_TOKENS,
-  temperature: number = DEFAULT_TEMPERATURE,
-): Promise<string> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature,
-          maxOutputTokens: maxTokens,
-        },
-      }),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-    return data.candidates[0].content.parts[0].text;
-  }
-
-  throw new Error('Invalid response from Gemini API');
-}
+// Gemini removed: calls to Gemini returned RESOURCE_EXHAUSTED on free tiers
+// and are not used anymore for this project.
 
 /**
  * Calls OpenAI API
@@ -298,8 +211,6 @@ async function callModel(
   temperature: number = DEFAULT_TEMPERATURE,
 ): Promise<string> {
   switch (config.provider) {
-    case 'gemini':
-      return callGemini(config.model, config.apiKey, prompt, schema, maxTokens, temperature);
     case 'openai':
       return callOpenAI(config.model, config.apiKey, prompt, schema, maxTokens, temperature);
     case 'openrouter':
