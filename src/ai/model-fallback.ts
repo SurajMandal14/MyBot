@@ -1,6 +1,7 @@
 /**
  * @fileOverview API Model Fallback Manager
  * Provides fallback mechanism for LLM APIs when rate limits or quota exhaustion occurs.
+ * Optimized for lower cost and better use of free models.
  */
 
 export interface ModelConfig {
@@ -16,39 +17,43 @@ export interface FallbackResponse {
   success: boolean;
 }
 
-// Model configuration in order of preference
-// Put free / cheaper models first to reduce paid usage.
-const modelConfigs: ModelConfig[] = [
-  // OpenRouter free models
-  {
-    provider: 'openrouter',
-    model: 'deepseek/deepseek-r1-0528:free',
-    apiKey: process.env.OPENROUTER_API_KEY || '',
-  },
-  {
-    provider: 'openrouter',
-    model: 'meta-llama/llama-4-maverick:free',
-    apiKey: process.env.OPENROUTER_API_KEY || '',
-  },
+/**
+ * Default generation settings.
+ * You can override per-call by adding optional params later if needed.
+ */
+const DEFAULT_TEMPERATURE = 0.7;
+const DEFAULT_MAX_TOKENS = 1024; // Lowered from 2048 to save cost
 
-  // Gemini Flash (cheaper than Pro)
+// Model configuration in order of preference (cheapest / free first)
+const modelConfigs: ModelConfig[] = [
+  // 1) Gemini Flash – best price/perf if you have free tier or low rate
   {
     provider: 'gemini',
     model: 'gemini-2.5-flash',
     apiKey: process.env.GEMINI_API_KEY || '',
   },
 
-  // Main Gemini Pro models
+  // 2) OpenRouter free models (verify they exist in OpenRouter models page)
+  // DeepSeek R1 free
   {
-    provider: 'gemini',
-    model: 'gemini-2.5-pro',
-    apiKey: process.env.GEMINI_API_KEY || '',
+    provider: 'openrouter',
+    model: 'deepseek/deepseek-r1:free',
+    apiKey: process.env.OPENROUTER_API_KEY || '',
   },
+  // DeepSeek R1 distill (Qwen 32B) free
   {
-    provider: 'gemini',
-    model: 'gemini-3-pro',
-    apiKey: process.env.GEMINI_API_KEY || '',
+    provider: 'openrouter',
+    model: 'deepseek/deepseek-r1-distill-qwen-32b:free',
+    apiKey: process.env.OPENROUTER_API_KEY || '',
   },
+  // LLaMA 4 Maverick free
+  {
+    provider: 'openrouter',
+    model: 'meta-llama/llama-4-maverick:free',
+    apiKey: process.env.OPENROUTER_API_KEY || '',
+  },
+
+  // 3) Other Gemini variants (still cheaper than Pro in many cases)
   {
     provider: 'gemini',
     model: 'gemini-2.0-flash',
@@ -59,20 +64,33 @@ const modelConfigs: ModelConfig[] = [
     model: 'gemini-1.5-pro',
     apiKey: process.env.GEMINI_API_KEY || '',
   },
+  // Secondary Gemini project/key if you really have a separate project
   {
     provider: 'gemini',
     model: 'gemini-1.5-pro',
     apiKey: process.env.GEMINI_API_KEY_SECONDARY || '',
   },
 
-  // OpenAI
+  // 4) Gemini Pro (more expensive / powerful)
+  {
+    provider: 'gemini',
+    model: 'gemini-2.5-pro',
+    apiKey: process.env.GEMINI_API_KEY || '',
+  },
+  {
+    provider: 'gemini',
+    model: 'gemini-3-pro',
+    apiKey: process.env.GEMINI_API_KEY || '',
+  },
+
+  // 5) OpenAI paid
   {
     provider: 'openai',
     model: 'gpt-4-turbo',
     apiKey: process.env.OPENAI_API_KEY || '',
   },
 
-  // Paid OpenRouter models
+  // 6) OpenRouter paid / other
   {
     provider: 'openrouter',
     model: 'openai/gpt-4-turbo',
@@ -84,7 +102,7 @@ const modelConfigs: ModelConfig[] = [
     apiKey: process.env.OPENROUTER_API_KEY || '',
   },
 
-  // Grok
+  // 7) Grok (xAI)
   {
     provider: 'grok',
     model: 'grok-2',
@@ -100,7 +118,8 @@ async function callGemini(
   apiKey: string,
   prompt: string,
   schema?: any,
-  maxOutputTokens = 1024
+  maxTokens: number = DEFAULT_MAX_TOKENS,
+  temperature: number = DEFAULT_TEMPERATURE,
 ): Promise<string> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -121,11 +140,11 @@ async function callGemini(
           },
         ],
         generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens,
+          temperature,
+          maxOutputTokens: maxTokens,
         },
       }),
-    }
+    },
   );
 
   if (!response.ok) {
@@ -148,7 +167,8 @@ async function callOpenAI(
   apiKey: string,
   prompt: string,
   schema?: any,
-  maxTokens = 1024
+  maxTokens: number = DEFAULT_MAX_TOKENS,
+  temperature: number = DEFAULT_TEMPERATURE,
 ): Promise<string> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -164,7 +184,7 @@ async function callOpenAI(
           content: prompt,
         },
       ],
-      temperature: 0.7,
+      temperature,
       max_tokens: maxTokens,
     }),
   });
@@ -189,7 +209,8 @@ async function callOpenRouter(
   apiKey: string,
   prompt: string,
   schema?: any,
-  maxTokens = 1024
+  maxTokens: number = DEFAULT_MAX_TOKENS,
+  temperature: number = DEFAULT_TEMPERATURE,
 ): Promise<string> {
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -207,7 +228,7 @@ async function callOpenRouter(
           content: prompt,
         },
       ],
-      temperature: 0.7,
+      temperature,
       max_tokens: maxTokens,
     }),
   });
@@ -232,7 +253,8 @@ async function callGrok(
   apiKey: string,
   prompt: string,
   schema?: any,
-  maxTokens = 1024
+  maxTokens: number = DEFAULT_MAX_TOKENS,
+  temperature: number = DEFAULT_TEMPERATURE,
 ): Promise<string> {
   const response = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
@@ -248,7 +270,7 @@ async function callGrok(
           content: prompt,
         },
       ],
-      temperature: 0.7,
+      temperature,
       max_tokens: maxTokens,
     }),
   });
@@ -272,19 +294,18 @@ async function callModel(
   config: ModelConfig,
   prompt: string,
   schema?: any,
-  maxTokens?: number
+  maxTokens: number = DEFAULT_MAX_TOKENS,
+  temperature: number = DEFAULT_TEMPERATURE,
 ): Promise<string> {
-  const tokens = maxTokens ?? 1024;
-
   switch (config.provider) {
     case 'gemini':
-      return callGemini(config.model, config.apiKey, prompt, schema, tokens);
+      return callGemini(config.model, config.apiKey, prompt, schema, maxTokens, temperature);
     case 'openai':
-      return callOpenAI(config.model, config.apiKey, prompt, schema, tokens);
+      return callOpenAI(config.model, config.apiKey, prompt, schema, maxTokens, temperature);
     case 'openrouter':
-      return callOpenRouter(config.model, config.apiKey, prompt, schema, tokens);
+      return callOpenRouter(config.model, config.apiKey, prompt, schema, maxTokens, temperature);
     case 'grok':
-      return callGrok(config.model, config.apiKey, prompt, schema, tokens);
+      return callGrok(config.model, config.apiKey, prompt, schema, maxTokens, temperature);
     default:
       throw new Error(`Unknown provider: ${config.provider}`);
   }
@@ -293,13 +314,16 @@ async function callModel(
 /**
  * Attempts to get a response with fallback to alternative APIs
  * @param prompt The prompt to send to the model
- * @param schema Optional JSON schema for structured output
+ * @param schema Optional JSON schema for structured output (currently unused)
+ * @param maxTokens Optional per-call max tokens override
+ * @param temperature Optional per-call temperature override
  * @returns The model response
  */
 export async function callModelWithFallback(
   prompt: string,
   schema?: any,
-  maxTokens?: number
+  maxTokens: number = DEFAULT_MAX_TOKENS,
+  temperature: number = DEFAULT_TEMPERATURE,
 ): Promise<FallbackResponse> {
   const errors: Array<{ config: ModelConfig; error: string }> = [];
 
@@ -314,7 +338,7 @@ export async function callModelWithFallback(
     }
 
     try {
-      const content = await callModel(config, prompt, schema, maxTokens);
+      const content = await callModel(config, prompt, schema, maxTokens, temperature);
       return {
         content,
         provider: config.provider,
@@ -328,7 +352,7 @@ export async function callModelWithFallback(
         error: errorMessage,
       });
       console.warn(
-        `Failed to use ${config.provider}/${config.model}: ${errorMessage}. Trying next fallback...`
+        `Failed to use ${config.provider}/${config.model}: ${errorMessage}. Trying next fallback...`,
       );
       continue;
     }
@@ -340,7 +364,7 @@ export async function callModelWithFallback(
     .join('\n');
 
   throw new Error(
-    `All AI models failed. Please check your API keys and quota:\n${errorSummary}`
+    `All AI models failed. Please check your API keys, quotas, or network:\n${errorSummary}`,
   );
 }
 
@@ -348,12 +372,12 @@ export async function callModelWithFallback(
  * Gets the list of available models based on configured API keys
  */
 export function getAvailableModels(): ModelConfig[] {
-  return modelConfigs.filter((config) => config.apiKey);
+  return modelConfigs.filter((config) => !!config.apiKey);
 }
 
 /**
- * Lightweight health check to verify which APIs are available
- * Uses very small prompts and tiny token budgets to avoid burning quota.
+ * Lightweight health check to verify which APIs are available.
+ * Uses a tiny prompt and very low token limit to avoid burning quota.
  */
 export async function checkModelAvailability(): Promise<
   Array<{ config: ModelConfig; available: boolean; error?: string }>
@@ -371,12 +395,13 @@ export async function checkModelAvailability(): Promise<
     }
 
     try {
-      // Very small test call with minimal tokens
+      // Minimal test call with very low tokens
       await callModel(
         config,
         'ping',
         undefined,
-        8 // limit token usage for health checks
+        16, // maxTokens
+        0, // temperature
       );
       results.push({
         config,
