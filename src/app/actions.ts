@@ -17,10 +17,11 @@ import {
   parseReceiptDetails,
   ParseReceiptDetailsInput,
 } from '@/ai/flows/parse-receipt-details';
+import { hasAnyConfiguredAiProvider } from '@/ai/model-fallback';
 import { invoiceSchema, quotationSchema, receiptSchema } from '@/lib/validators';
 
 const API_KEY_ERROR_MESSAGE =
-  'AI features require a Gemini API key. Please add `GEMINI_API_KEY=your_key` to the .env file and restart the server. You can get a key from Google AI Studio.';
+  'AI features require at least one configured AI provider. Add `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, or `GROK_API_KEY` to your environment and restart the server.';
 
 type CounterType = 'invoice' | 'quotation' | 'receipt';
 
@@ -39,9 +40,7 @@ async function getNextNumber(type: CounterType): Promise<number> {
 }
 
 function isApiKeyMissing() {
-  const geminiKey = process.env.GEMINI_API_KEY;
-  const googleKey = process.env.GOOGLE_API_KEY;
-  return !geminiKey?.trim() && !googleKey?.trim();
+  return !hasAnyConfiguredAiProvider();
 }
 
 function hasMeaningfulData(parsedData: ParseServiceDetailsOutput): boolean {

@@ -11,7 +11,18 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { callModelWithFallback } from '@/ai/model-fallback';
+import {
+  clearPrimaryGeminiCooldown,
+  getErrorMessage,
+  getPrimaryGeminiSkipReason,
+  hasPrimaryGeminiApiKey,
+  recordPrimaryGeminiFailure,
+  shouldSkipPrimaryGemini,
+} from '@/ai/model-fallback';
+import {
+  buildCombinedParseFailure,
+  parseDetailsWithFallback,
+} from '@/ai/parse-helper';
 
 const ParseReceiptDetailsInputSchema = z.object({
   text: z
@@ -77,48 +88,43 @@ const parseReceiptDetailsFlow = ai.defineFlow(
     outputSchema: ParseReceiptDetailsOutputSchema,
   },
   async input => {
-    try {
-      // Try primary Genkit/Gemini flow first
-      const {output} = await parseReceiptDetailsPrompt(input);
-      return output!;
-    } catch (error) {
-      // If Gemini fails (quota exhausted, etc), try fallback APIs
-      console.warn('Primary Gemini API failed, attempting fallback...', error);
-      
-      const prompt = `You are a helpful assistant that extracts vehicle service details from text to create a RECEIPT, supporting both English and Telugu.
-  
-  Your most important task is to preserve the item descriptions exactly as they are written, without correcting spelling or expanding abbreviations.
-  Do NOT expand these shortcuts: "r&r", "Lh rh", "Fr rr", "Strng". Keep them as they are.
-  
-  Extract and return ONLY a valid JSON object with these fields:
-  - vehicleNumber: string
-  - customerName: string
-  - carModel: string
-  - items: array of {description, unitPrice, quantity, total}
-  
-  Text to extract:
-  ${input.text}`;
+    let primaryError: unknown = null;
 
+    if (!hasPrimaryGeminiApiKey()) {
+      primaryError = 'Gemini API key is not configured.';
+    } else if (shouldSkipPrimaryGemini()) {
+      primaryError = getPrimaryGeminiSkipReason();
+    } else {
       try {
-        const response = await callModelWithFallback(prompt);
-        
-        // Parse JSON from response
-        const jsonMatch = response.content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          console.log(
-            `Successfully parsed using fallback API: ${response.provider}/${response.model}`
-          );
-          return parsed as ParseReceiptDetailsOutput;
+        const {output} = await parseReceiptDetailsPrompt(input);
+        if (!output) {
+          throw new Error('Gemini returned no structured receipt output.');
         }
-        
-        throw new Error('Could not extract JSON from fallback response');
-      } catch (fallbackError) {
-        console.error('Fallback API also failed:', fallbackError);
-        throw new Error(
-          `Failed to parse receipt details - both primary and fallback APIs failed: ${error}`
-        );
+
+        clearPrimaryGeminiCooldown();
+        return output;
+      } catch (error) {
+        recordPrimaryGeminiFailure(error);
+        primaryError = getErrorMessage(error);
+        console.warn('Primary Gemini API failed, attempting fallback...', primaryError);
       }
+    }
+
+    try {
+      const fallbackOutput = await parseDetailsWithFallback({
+        text: input.text,
+        type: 'receipt',
+        schema: ParseReceiptDetailsOutputSchema,
+      });
+      return fallbackOutput as ParseReceiptDetailsOutput;
+    } catch (fallbackError) {
+      const combinedError = buildCombinedParseFailure(
+        'receipt',
+        primaryError,
+        fallbackError
+      );
+      console.error('Fallback API also failed:', combinedError);
+      throw new Error(combinedError);
     }
   }
 );

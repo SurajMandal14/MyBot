@@ -5,7 +5,7 @@
  */
 
 export interface ModelConfig {
-  provider: 'openai' | 'openrouter' | 'grok';
+  provider: 'openai' | 'openrouter' | 'grok' | 'nvidia';
   model: string;
   apiKey: string;
 }
@@ -17,16 +17,28 @@ export interface FallbackResponse {
   success: boolean;
 }
 
+const GEMINI_COOLDOWN_FALLBACK_MS = 5 * 60 * 1000;
+let geminiCooldownUntil = 0;
+let geminiCooldownReason: string | null = null;
+
 /**
  * Default generation settings.
  * You can override per-call by adding optional params later if needed.
  */
 const DEFAULT_TEMPERATURE = 0.7;
 const DEFAULT_MAX_TOKENS = 1024; // Lowered from 2048 to save cost
+const DEFAULT_NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'google/gemma-3-27b-it';
 
 // Model configuration in order of preference (cheap/free first,
 // then paid OpenRouter, then Grok, then direct OpenAI last)
 const modelConfigs: ModelConfig[] = [
+  // NVIDIA Build
+  {
+    provider: 'nvidia',
+    model: DEFAULT_NVIDIA_MODEL,
+    apiKey: process.env.NVIDIA_API_KEY || process.env.NVIDIA_BUILD_API_KEY || '',
+  },
+
   // OpenRouter free models
   {
     provider: 'openrouter',
@@ -65,6 +77,78 @@ const modelConfigs: ModelConfig[] = [
     apiKey: process.env.OPENAI_API_KEY || '',
   },
 ];
+
+export function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export function hasPrimaryGeminiApiKey(): boolean {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const googleKey = process.env.GOOGLE_API_KEY;
+  return Boolean(geminiKey?.trim() || googleKey?.trim());
+}
+
+export function hasAnyConfiguredAiProvider(): boolean {
+  return hasPrimaryGeminiApiKey() || getAvailableModels().length > 0;
+}
+
+export function isQuotaOrRateLimitError(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase();
+  return (
+    message.includes('resource_exhausted') ||
+    message.includes('quota exceeded') ||
+    message.includes('too many requests') ||
+    message.includes('rate limit') ||
+    message.includes('exceeded your current quota') ||
+    message.includes('generate_content_free_tier_requests') ||
+    message.includes('generate_content_free_tier_input_token_count')
+  );
+}
+
+function getRetryDelayMs(error: unknown): number | null {
+  const match = getErrorMessage(error).match(/Please retry in ([\d.]+)s/i);
+  if (!match) {
+    return null;
+  }
+
+  const seconds = Number(match[1]);
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return null;
+  }
+
+  return Math.ceil(seconds * 1000);
+}
+
+export function recordPrimaryGeminiFailure(error: unknown): void {
+  if (!isQuotaOrRateLimitError(error)) {
+    return;
+  }
+
+  const retryDelayMs = getRetryDelayMs(error) ?? GEMINI_COOLDOWN_FALLBACK_MS;
+  geminiCooldownUntil = Date.now() + Math.max(retryDelayMs, 30_000);
+  geminiCooldownReason = getErrorMessage(error);
+}
+
+export function clearPrimaryGeminiCooldown(): void {
+  geminiCooldownUntil = 0;
+  geminiCooldownReason = null;
+}
+
+export function shouldSkipPrimaryGemini(): boolean {
+  return Date.now() < geminiCooldownUntil;
+}
+
+export function getPrimaryGeminiSkipReason(): string | null {
+  if (!shouldSkipPrimaryGemini()) {
+    return null;
+  }
+
+  if (geminiCooldownReason) {
+    return `Gemini is cooling down after a quota or rate-limit failure: ${geminiCooldownReason}`;
+  }
+
+  return 'Gemini is cooling down after a recent quota or rate-limit failure.';
+}
 
 /**
  * Calls Gemini API
@@ -201,6 +285,54 @@ async function callGrok(
 }
 
 /**
+ * Calls NVIDIA Build / NIM API
+ */
+async function callNvidia(
+  model: string,
+  apiKey: string,
+  prompt: string,
+  schema?: any,
+  maxTokens: number = DEFAULT_MAX_TOKENS,
+  temperature: number = DEFAULT_TEMPERATURE,
+): Promise<string> {
+  const response = await fetch(
+    process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature,
+        max_tokens: maxTokens,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `NVIDIA API error: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ''}`
+    );
+  }
+
+  const data = await response.json();
+  if (data.choices && data.choices[0]?.message?.content) {
+    return data.choices[0].message.content;
+  }
+
+  throw new Error('Invalid response from NVIDIA API');
+}
+
+/**
  * Calls the appropriate API based on provider
  */
 async function callModel(
@@ -217,6 +349,8 @@ async function callModel(
       return callOpenRouter(config.model, config.apiKey, prompt, schema, maxTokens, temperature);
     case 'grok':
       return callGrok(config.model, config.apiKey, prompt, schema, maxTokens, temperature);
+    case 'nvidia':
+      return callNvidia(config.model, config.apiKey, prompt, schema, maxTokens, temperature);
     default:
       throw new Error(`Unknown provider: ${config.provider}`);
   }
@@ -257,7 +391,7 @@ export async function callModelWithFallback(
         success: true,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       errors.push({
         config,
         error: errorMessage,
@@ -322,7 +456,7 @@ export async function checkModelAvailability(): Promise<
       results.push({
         config,
         available: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     }
   }
