@@ -62,13 +62,64 @@ Text to extract:
 ${text}`;
 }
 
-function extractJsonObject(content: string): unknown {
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
+function stripMarkdownCodeFences(content: string): string {
+  return content
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+}
+
+function sanitizeJsonString(content: string): string {
+  return content
+    .replace(/^\uFEFF/, '')
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/,\s*([}\]])/g, '$1')
+    .trim();
+}
+
+function parseJsonFromContent(content: string): unknown {
+  const cleaned = stripMarkdownCodeFences(content);
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error('Could not extract JSON from fallback response.');
   }
 
-  return JSON.parse(jsonMatch[0]);
+  const candidates = [jsonMatch[0], sanitizeJsonString(jsonMatch[0])];
+  let lastError: unknown;
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+async function repairJsonWithFallback(content: string): Promise<unknown> {
+  const repairPrompt = `Repair the malformed JSON below.
+
+Rules:
+- Return ONLY valid JSON.
+- Do not add markdown fences.
+- Preserve the original meaning and fields.
+- Keep the top-level object shape exactly as-is.
+- If an item value is unclear, use an empty string or 0.
+
+Malformed JSON:
+${content}`;
+
+  const repairedResponse = await callModelWithFallback(
+    repairPrompt,
+    undefined,
+    2048,
+    0
+  );
+
+  return parseJsonFromContent(repairedResponse.content);
 }
 
 function toStringValue(value: unknown): string {
@@ -127,8 +178,24 @@ export async function parseDetailsWithFallback(
   const prompt = buildParsePrompt(options.type, options.text);
 
   try {
-    const response = await callModelWithFallback(prompt, options.schema);
-    const parsed = extractJsonObject(response.content);
+    const response = await callModelWithFallback(
+      prompt,
+      options.schema,
+      2048,
+      0
+    );
+    let parsed: unknown;
+
+    try {
+      parsed = parseJsonFromContent(response.content);
+    } catch (parseError) {
+      console.warn(
+        'Fallback returned malformed JSON, attempting repair:',
+        getErrorMessage(parseError)
+      );
+      parsed = await repairJsonWithFallback(response.content);
+    }
+
     const normalized = normalizeParsedDetails(parsed);
     return options.schema.parse(normalized);
   } catch (error) {

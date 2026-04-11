@@ -92,6 +92,18 @@ export function hasAnyConfiguredAiProvider(): boolean {
   return hasPrimaryGeminiApiKey() || getAvailableModels().length > 0;
 }
 
+export function shouldDisablePrimaryGemini(): boolean {
+  return process.env.DISABLE_GEMINI_PRIMARY?.trim().toLowerCase() === 'true';
+}
+
+export function getPrimaryGeminiDisabledReason(): string | null {
+  if (!shouldDisablePrimaryGemini()) {
+    return null;
+  }
+
+  return 'Gemini was skipped because DISABLE_GEMINI_PRIMARY=true.';
+}
+
 export function isQuotaOrRateLimitError(error: unknown): boolean {
   const message = getErrorMessage(error).toLowerCase();
   return (

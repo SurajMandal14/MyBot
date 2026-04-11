@@ -14,9 +14,11 @@ import {z} from 'genkit';
 import {
   clearPrimaryGeminiCooldown,
   getErrorMessage,
+  getPrimaryGeminiDisabledReason,
   getPrimaryGeminiSkipReason,
   hasPrimaryGeminiApiKey,
   recordPrimaryGeminiFailure,
+  shouldDisablePrimaryGemini,
   shouldSkipPrimaryGemini,
 } from '@/ai/model-fallback';
 import {
@@ -90,7 +92,9 @@ const parseReceiptDetailsFlow = ai.defineFlow(
   async input => {
     let primaryError: unknown = null;
 
-    if (!hasPrimaryGeminiApiKey()) {
+    if (shouldDisablePrimaryGemini()) {
+      primaryError = getPrimaryGeminiDisabledReason();
+    } else if (!hasPrimaryGeminiApiKey()) {
       primaryError = 'Gemini API key is not configured.';
     } else if (shouldSkipPrimaryGemini()) {
       primaryError = getPrimaryGeminiSkipReason();
